@@ -1073,7 +1073,7 @@ workflows:
       - build-visionos:
           xcode_version: '15.1'
       - backend-integration-tests:
-          xcode_version: '15.0.0'
+          xcode_version: '15.0.1'
           filters:
               branches:
                 # Forked pull requests have CIRCLE_BRANCH set to pull/XXX
