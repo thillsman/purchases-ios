@@ -1172,7 +1172,7 @@ workflows:
         - equal: [ "load_shedder_integration_tests", << pipeline.schedule.name >> ]
     jobs:
       - loadshedder-integration-tests:
-          xcode_version: '14.3.0'
+          xcode_version: '15.1'
   
   manual-trigger-bump:
     when:
