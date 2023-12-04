@@ -1520,8 +1520,6 @@ internal extension Purchases {
         return self.systemInfo.storeKit2Setting
     }
 
-    #if DEBUG
-
     /// - Returns: the parsed `AppleReceipt`
     ///
     /// - Warning: this is only meant for integration tests, as a way to debug purchase failures.
@@ -1531,8 +1529,6 @@ internal extension Purchases {
 
         return try receipt.map { try PurchasesReceiptParser.default.parse(from: $0) }
     }
-
-    #endif
 
     #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
 
