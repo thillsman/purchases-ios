@@ -109,6 +109,7 @@ extension PaywallData {
         return Result {
             TemplateViewConfiguration(
                 mode: mode,
+                offering: offering,
                 packages: try .create(with: offering.availablePackages,
                                       activelySubscribedProductIdentifiers: activelySubscribedProductIdentifiers,
                                       filter: self.config.packages,

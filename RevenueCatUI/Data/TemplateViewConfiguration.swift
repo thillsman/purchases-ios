@@ -19,6 +19,7 @@ import RevenueCat
 struct TemplateViewConfiguration {
 
     let mode: PaywallViewMode
+    let offering: Offering
     let packages: PackageConfiguration
     let configuration: PaywallData.Configuration
     let colors: PaywallData.Configuration.Colors

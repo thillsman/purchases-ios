@@ -79,7 +79,7 @@ struct Template5View: TemplateViewType {
                 .padding(.top, self.defaultVerticalPaddingLength)
                 .scrollableIfNecessaryWhenAvailable()
 
-                self.packages
+                self.packages(isCondensed: !displayingAllPlans)
                     .padding(.top, self.defaultVerticalPaddingLength)
                     .scrollableIfNecessaryWhenAvailable()
             }
@@ -112,11 +112,11 @@ struct Template5View: TemplateViewType {
             }
 
             if self.configuration.mode.shouldDisplayInlineOfferDetails(displayingAllPlans: self.displayingAllPlans) {
-                self.offerDetails(
-                    package: self.selectedPackage,
-                    selected: false,
-                    alignment: .center
-                )
+//                self.offerDetails(
+//                    package: self.selectedPackage,
+//                    selected: false,
+//                    alignment: .center
+//                )
             }
 
             self.subscribeButton
@@ -152,11 +152,11 @@ struct Template5View: TemplateViewType {
 
                 Spacer()
 
-                self.packagesWithBottomSpacer
+                self.packagesWithBottomSpacer(isCondensed: !displayingAllPlans)
             } else {
-                self.packagesWithBottomSpacer
-                    .hideFooterContent(self.configuration,
-                                       hide: !self.displayingAllPlans)
+                self.packagesWithBottomSpacer(isCondensed: !displayingAllPlans)
+//                    .hideFooterContent(self.configuration,
+//                                       hide: !self.displayingAllPlans)
             }
         }
         .frame(maxHeight: .infinity)
@@ -195,18 +195,23 @@ struct Template5View: TemplateViewType {
         }
         .matchedGeometryEffect(id: Geometry.features, in: self.namespace)
     }
+    
+    let condensedPackageCount = 2
+    let columnCount = 2
 
-    private var packages: some View {
+    private func packages(isCondensed: Bool) -> some View {
         VStack(spacing: 16) {
-            ForEach(self.configuration.packages.all, id: \.content.id) { package in
-                let isSelected = self.selectedPackage.content === package.content
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: columnCount)) {
+                ForEach(self.configuration.packages.all.prefix(isCondensed ? condensedPackageCount : Int.max), id: \.content.id) { package in
+                    let isSelected = self.selectedPackage.content === package.content
 
-                Button {
-                    self.selectedPackage = package
-                } label: {
-                    self.packageButton(package, selected: isSelected)
+                    Button {
+                        self.selectedPackage = package
+                    } label: {
+                        self.packageButton(package, selected: isSelected)
+                    }
+                    .buttonStyle(PackageButtonStyle())
                 }
-                .buttonStyle(PackageButtonStyle())
             }
         }
         .matchedGeometryEffect(id: Geometry.packages, in: self.namespace)
@@ -214,10 +219,23 @@ struct Template5View: TemplateViewType {
     }
 
     @ViewBuilder
-    private var packagesWithBottomSpacer: some View {
-        self.packages
+    private func packagesWithBottomSpacer(isCondensed: Bool) -> some View {
+        self.packages(isCondensed: isCondensed)
 
         Spacer()
+    }
+    
+    private func overrideString(package: TemplateViewConfiguration.Package) -> String? {
+        let productIdentifier = package.content.storeProduct.productIdentifier
+        let productOverride: [String: String]? = self.configuration.offering.metadata[productIdentifier] as? [String: String]
+        if #available(iOS 16, *) {
+            if let overrideValue = productOverride?[Locale.current.language.languageCode?.identifier ?? "en"] {
+                return overrideValue
+            }
+        } else {
+            return nil
+        }
+        return nil
     }
 
     @ViewBuilder
@@ -230,16 +248,30 @@ struct Template5View: TemplateViewType {
 
                 Spacer(minLength: 0)
 
-                self.packageDiscountLabel(package, selected: selected)
             }
 
-            self.offerDetails(package: package, selected: selected)
-                .defaultHorizontalPadding()
-                .padding(.bottom, self.defaultVerticalPaddingLength)
+            if let overrideString = overrideString(package: package) {
+                
+                self.offerDetailsOverride(overrideText: overrideString, package: package, selected: selected)
+                    .defaultHorizontalPadding()
+                    .padding(.bottom, self.defaultVerticalPaddingLength)
+                
+            } else {
+                
+                self.offerDetails(package: package, selected: selected)
+                    .defaultHorizontalPadding()
+                    .padding(.bottom, self.defaultVerticalPaddingLength)
+            }
+            
+            self.packageDiscountLabel(package, selected: selected)
+                .padding(.horizontal, 4)
+                .padding(.top, -16)
+            
         }
         .font(self.font(for: .body).weight(.medium))
         .multilineTextAlignment(.leading)
         .frame(maxWidth: .infinity, alignment: Self.packageButtonAlignment)
+        .frame(maxHeight: .infinity, alignment: .top)
         .overlay {
             self.roundedRectangle
                 .stroke(
@@ -307,6 +339,21 @@ struct Template5View: TemplateViewType {
 
             Text(package.localization.offerName ?? package.content.productName)
         }
+    }
+    
+    private func offerDetailsOverride(
+        overrideText: String,
+        package: TemplateViewConfiguration.Package,
+        selected: Bool,
+        alignment: Alignment = Self.packageButtonAlignment
+    ) -> some View {
+        let foregroundColor = self.configuration.colors.text1Color
+        let processed = overrideText.processed(with: package.content, context: VariableHandler.Context(discountRelativeToMostExpensivePerMonth: nil), locale: Locale.current)
+        return Text(processed)
+            .foregroundColor(foregroundColor)
+            .tint(foregroundColor)
+        .fixedSize(horizontal: false, vertical: true)
+        .font(self.font(for: .body))
     }
 
     private func offerDetails(
