@@ -98,6 +98,9 @@ class PostOfferForSigningOperation: NetworkOperation {
 
 }
 
+// Restating inherited @unchecked Sendable from Foundation's Operation
+extension PostOfferForSigningOperation: @unchecked Sendable {}
+
 private extension PostOfferResponse.Offer {
 
     var asSigningData: PostOfferForSigningOperation.SigningData? {
@@ -122,7 +125,7 @@ private extension PostOfferForSigningOperation {
         }
 
         let appUserID: String
-        let fetchToken: String
+        let fetchToken: String?
         let generateOffers: [Offer]
 
         init(appUserID: String, data: PostOfferForSigningData) {

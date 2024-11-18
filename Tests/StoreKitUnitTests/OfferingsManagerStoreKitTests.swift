@@ -23,7 +23,7 @@ class OfferingsManagerStoreKitTests: StoreKitConfigTestCase {
     let mockOperationDispatcher = MockOperationDispatcher()
     let mockSystemInfo = MockSystemInfo(platformInfo: .init(flavor: "iOS", version: "3.2.1"),
                                         finishTransactions: true,
-                                        storeKit2Setting: .enabledForCompatibleDevices)
+                                        storeKitVersion: .storeKit2)
     let mockBackend = MockBackend()
     var mockOfferings: MockOfferingsAPI!
     let mockOfferingsFactory = OfferingsFactory()
@@ -34,7 +34,8 @@ class OfferingsManagerStoreKitTests: StoreKitConfigTestCase {
         try super.setUpWithError()
         self.mockOfferings = try XCTUnwrap(self.mockBackend.offerings as? MockOfferingsAPI)
         self.mockDeviceCache = MockDeviceCache(sandboxEnvironmentDetector: self.mockSystemInfo)
-        self.mockProductsManager = MockProductsManager(systemInfo: self.mockSystemInfo,
+        self.mockProductsManager = MockProductsManager(diagnosticsTracker: nil,
+                                                       systemInfo: self.mockSystemInfo,
                                                        requestTimeout: Configuration.storeKitRequestTimeoutDefault)
         self.offeringsManager = OfferingsManager(deviceCache: self.mockDeviceCache,
                                                  operationDispatcher: self.mockOperationDispatcher,
@@ -105,7 +106,6 @@ private extension OfferingsManagerStoreKitTests {
 
 private extension OfferingsManager {
 
-    @available(iOS 13.0, tvOS 13.0, watchOS 6.2, macOS 10.15, *)
     func offerings(appUserID: String) async throws -> Offerings {
         return try await Async.call { completion in
             self.offerings(appUserID: appUserID, completion: completion)

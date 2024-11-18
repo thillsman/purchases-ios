@@ -12,17 +12,31 @@
         "text1" : "#000000"
       }
     },
+    "colors_by_tier" : {
+
+    },
     "display_restore_purchases" : true,
+    "images_by_tier" : {
+
+    },
     "images_heic" : {
       "background" : "background.jpg",
       "header" : null,
       "icon" : "revenuecatui_default_paywall_app_icon"
+    },
+    "images_heic_low_res" : {
+      "background" : null,
+      "header" : null,
+      "icon" : null
     },
     "packages" : [
       "$rc_monthly",
       "$rc_annual"
     ],
     "privacy_url" : null,
+    "tiers" : [
+
+    ],
     "tos_url" : null
   },
   "localized_strings" : {
@@ -35,10 +49,22 @@
       "offer_details" : "{{ total_price_and_per_month }}",
       "offer_details_with_intro_offer" : "{{ sub_offer_duration }} gratis y luego {{ total_price_and_per_month }}.",
       "offer_name" : null,
+      "offer_overrides" : {
+
+      },
       "subtitle" : null,
+      "tier_name" : null,
       "title" : "{{ app_name }}"
     }
   },
+  "localized_strings_by_tier" : {
+
+  },
   "revision" : -1,
-  "template_name" : "2"
+  "template_name" : "2",
+  "zero_decimal_place_countries" : {
+    "apple" : [
+
+    ]
+  }
 }

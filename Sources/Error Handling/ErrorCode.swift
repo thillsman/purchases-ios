@@ -60,6 +60,7 @@ import Foundation
     @objc(RCFeatureNotAvailableInCustomEntitlementsComputationMode)
     case featureNotAvailableInCustomEntitlementsComputationMode = 36
     @objc(RCSignatureVerificationFailed) case signatureVerificationFailed = 37
+    @objc(RCFeatureNotSupportedWithStoreKit1) case featureNotSupportedWithStoreKit1 = 38
 
     // swiftlint:enable missing_docs
 
@@ -128,9 +129,8 @@ extension ErrorCode: DescribableError {
             return "The receipt is in use by other subscriber."
         case .invalidAppleSubscriptionKeyError:
             return """
-                   Apple Subscription Key is invalid or not present. In order to provide subscription offers, you must
-                   first generate a subscription key.
-                   Please see https://docs.revenuecat.com/docs/ios-subscription-offers for more info.
+                   Apple In-App Purchase Key is invalid or not present. You must configure an In-App Purchase Key.
+                   Please see https://rev.cat/in-app-purchase-key-configuration for more info.
                    """
         case .ineligibleError:
             return "The User is ineligible for that action."
@@ -181,6 +181,9 @@ extension ErrorCode: DescribableError {
             return "This feature is not available when utilizing the customEntitlementsComputation dangerousSetting."
         case .signatureVerificationFailed:
             return "Request failed signature verification. See https://rev.cat/trusted-entitlements for more info."
+        case .featureNotSupportedWithStoreKit1:
+            return "This feature is not supported when using StoreKit 1." +
+                "Configure the SDK to use StoreKit 2 to use this feature."
 
         @unknown default:
             return "Something went wrong."
@@ -282,6 +285,8 @@ extension ErrorCode {
             return "FEATURE_NOT_AVAILABLE_IN_CUSTOM_ENTITLEMENTS_COMPUTATION_MODE_ERROR"
         case .signatureVerificationFailed:
             return "SIGNATURE_VERIFICATION_FAILED"
+        case .featureNotSupportedWithStoreKit1:
+            return "FEATURE_NOT_SUPPORTED_WITH_STOREKIT1"
         @unknown default:
             return "UNRECOGNIZED_ERROR"
         }

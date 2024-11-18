@@ -15,22 +15,21 @@ class MockSystemInfo: SystemInfo {
 
     var stubbedIsApplicationBackgrounded: Bool?
     var stubbedIsSandbox: Bool?
+    var stubbedIsDebugBuild: Bool?
     var stubbedStorefront: StorefrontType?
 
     convenience init(platformInfo: Purchases.PlatformInfo? = nil,
                      finishTransactions: Bool,
-                     storeKit2Setting: StoreKit2Setting = .default,
                      customEntitlementsComputation: Bool = false,
-                     usesStoreKit2JWS: Bool = false,
+                     storeKitVersion: StoreKitVersion = .default,
                      clock: ClockType = TestClock()) {
         let dangerousSettings = DangerousSettings(
             autoSyncPurchases: true,
-            customEntitlementComputation: customEntitlementsComputation,
-            internalSettings: DangerousSettings.Internal(usesStoreKit2JWS: usesStoreKit2JWS)
+            customEntitlementComputation: customEntitlementsComputation
         )
         self.init(platformInfo: platformInfo,
                   finishTransactions: finishTransactions,
-                  storeKit2Setting: storeKit2Setting,
+                  storeKitVersion: storeKitVersion,
                   dangerousSettings: dangerousSettings,
                   clock: clock)
     }
@@ -57,12 +56,18 @@ class MockSystemInfo: SystemInfo {
         return self.stubbedIsSandbox ?? super.isSandbox
     }
 
+    override var isDebugBuild: Bool {
+        return self.stubbedIsDebugBuild ?? super.isDebugBuild
+    }
+
     override var storefront: StorefrontType? {
         return self.stubbedStorefront
     }
 }
 
-extension OperatingSystemVersion: Comparable {
+extension MockSystemInfo: @unchecked Sendable {}
+
+extension RevenueCat.OperatingSystemVersion: Swift.Comparable {
 
     public static func < (lhs: OperatingSystemVersion, rhs: OperatingSystemVersion) -> Bool {
         if lhs.majorVersion == rhs.majorVersion {

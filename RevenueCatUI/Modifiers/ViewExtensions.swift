@@ -16,7 +16,6 @@
 import Foundation
 import SwiftUI
 
-@available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *)
 extension View {
 
     @ViewBuilder
@@ -36,15 +35,18 @@ extension View {
     /// Wraps the 2 `onChange(of:)` implementations in iOS 17+ and below depending on what's available
     @inlinable
     @ViewBuilder
-    public func onChangeOf<V>(
+    func onChangeOf<V>(
         _ value: V,
         perform action: @escaping (_ newValue: V) -> Void
     ) -> some View where V: Equatable {
         #if swift(>=5.9)
+        // wrapping with AnyView to type erase is needed because when archiving an xcframework,
+        // the compiler gets confused between the types returned
+        // by the different implementations of self.onChange(of:value).
         if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
-            self.onChange(of: value) { _, newValue in action(newValue) }
+            AnyView(self.onChange(of: value) { _, newValue in action(newValue) })
         } else {
-            self.onChange(of: value) { newValue in action(newValue) }
+            AnyView(self.onChange(of: value) { newValue in action(newValue) })
         }
         #else
         self.onChange(of: value) { newValue in action(newValue) }
@@ -230,7 +232,6 @@ private struct ScrollableIfNecessaryModifier: ViewModifier {
 
 // MARK: - Size changes
 
-@available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *)
 extension View {
 
     /// Invokes the given closure whethever the view size changes.
@@ -288,7 +289,6 @@ extension View {
 
 #if canImport(UIKit)
 
-@available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *)
 extension View {
 
     @ViewBuilder
@@ -297,24 +297,28 @@ extension View {
         corners: UIRectCorner,
         edgesIgnoringSafeArea edges: Edge.Set = []
     ) -> some View {
-        #if swift(>=5.9)
-        if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
-            self.mask(
-                UnevenRoundedRectangle(radius: radius, corners: corners),
-                edgesIgnoringSafeArea: edges
-            )
-        } else {
+        if radius > 0 {
+            #if swift(>=5.9)
+            if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
+                self.mask(
+                    UnevenRoundedRectangle(radius: radius, corners: corners),
+                    edgesIgnoringSafeArea: edges
+                )
+            } else {
+                self.mask(
+                    RoundedCorner(radius: radius, corners: corners),
+                    edgesIgnoringSafeArea: edges
+                )
+            }
+            #else
             self.mask(
                 RoundedCorner(radius: radius, corners: corners),
                 edgesIgnoringSafeArea: edges
             )
+            #endif
+        } else {
+            self
         }
-        #else
-        self.mask(
-            RoundedCorner(radius: radius, corners: corners),
-            edgesIgnoringSafeArea: edges
-        )
-        #endif
     }
 
     private func mask(_ shape: some Shape, edgesIgnoringSafeArea edges: Edge.Set) -> some View {
@@ -323,7 +327,6 @@ extension View {
 
 }
 
-@available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *)
 private struct RoundedCorner: Shape {
 
     var radius: CGFloat
@@ -342,10 +345,8 @@ private struct RoundedCorner: Shape {
 
 // MARK: - Preference Keys
 
-@available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *)
 private protocol ViewDimensionPreferenceKey: PreferenceKey where Value == CGFloat {}
 
-@available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *)
 extension ViewDimensionPreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -386,7 +387,6 @@ private struct ViewSizePreferenceKey: PreferenceKey {
 
 // MARK: -
 
-@available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *)
 private extension Axis {
 
     var scrollViewAxis: Axis.Set {

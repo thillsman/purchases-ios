@@ -68,6 +68,7 @@ struct Template1View: TemplateViewType {
                 .defaultHorizontalPadding()
 
             FooterView(configuration: self.configuration,
+                       locale: self.localization.locale,
                        purchaseHandler: self.purchaseHandler)
         }
     }
@@ -102,7 +103,8 @@ struct Template1View: TemplateViewType {
     @ViewBuilder
     private var asyncImage: some View {
         if let headerImage = self.configuration.headerImageURL {
-            RemoteImage(url: headerImage, aspectRatio: self.imageAspectRatio)
+            let headerImageLowRes = self.configuration.headerLowResImageURL
+            RemoteImage(url: headerImage, lowResUrl: headerImageLowRes, aspectRatio: self.imageAspectRatio)
             .frame(maxWidth: .infinity)
             .aspectRatio(self.imageAspectRatio, contentMode: .fit)
         }

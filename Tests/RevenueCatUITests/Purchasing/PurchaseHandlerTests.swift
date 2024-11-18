@@ -224,7 +224,10 @@ class PurchaseHandlerTests: TestCase {
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 private final class AsyncPurchaseHandler {
 
-    var continuation: CheckedContinuation<Void, Never>?
+    // Note: We're using UnsafeContinuation instead of Checked because
+    // of a crash in iOS 18.0 devices when CheckedContinuations are used.
+    // See: https://github.com/RevenueCat/purchases-ios/issues/4177
+    var continuation: UnsafeContinuation<Void, Never>?
     private(set) var purchaseHandler: PurchaseHandler!
 
     init() {
@@ -246,6 +249,11 @@ private final class AsyncPurchaseHandler {
                 return TestData.customerInfo
             } trackEvent: { event in
                 Logger.debug("Tracking event: \(event)")
+            } customerInfo: { [weak instance = self] in
+                let instance = try XCTUnwrap(instance)
+                await instance.createAndWaitForContinuation()
+
+                return TestData.customerInfo
             }
         )
     }
@@ -255,7 +263,7 @@ private final class AsyncPurchaseHandler {
      }
 
     private func createAndWaitForContinuation() async {
-        await withCheckedContinuation { [weak self] continuation in
+        await withUnsafeContinuation { [weak self] continuation in
             self?.continuation = continuation
         }
     }

@@ -13,12 +13,11 @@
 
 import Foundation
 
-// swiftlint:disable nesting
-
 struct OfferingsResponse {
 
     struct Offering {
 
+        // swiftlint:disable:next nesting
         struct Package {
 
             let identifier: String
@@ -33,6 +32,11 @@ struct OfferingsResponse {
         var paywall: PaywallData?
         @DefaultDecodable.EmptyDictionary
         var metadata: [String: AnyDecodable]
+
+        #if PAYWALL_COMPONENTS
+        // components
+        var paywallComponents: PaywallComponentsData?
+        #endif
 
     }
 

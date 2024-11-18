@@ -54,6 +54,8 @@ public final class StoreProductDiscount: NSObject, StoreProductDiscountType {
         case introductory = 0
         /// Promotional offer for subscriptions
         case promotional = 1
+        /// Win-back offers
+        case winBack = 2
     }
 
     private let discount: StoreProductDiscountType
@@ -157,7 +159,7 @@ extension StoreProductDiscount {
 /// The details of an introductory offer or a promotional offer for an auto-renewable subscription.
 internal protocol StoreProductDiscountType: Sendable {
 
-    // Note: this is only `nil` for SK1 products before iOS 12.2.
+    // Note: this is only `nil` for SK1 products.
     // It can become `String` once it's not longer supported.
     /// A string used to uniquely identify a discount offer for a product.
     var offerIdentifier: String? { get }
@@ -199,7 +201,6 @@ internal protocol StoreProductDiscountType: Sendable {
 
 extension StoreProductDiscount {
 
-    @available(iOS 11.2, macOS 10.13.2, tvOS 11.2, watchOS 6.2, *)
     internal convenience init?(sk1Discount: SK1ProductDiscount) {
         guard let discount = SK1StoreProductDiscount(sk1Discount: sk1Discount) else { return nil }
 
@@ -215,7 +216,6 @@ extension StoreProductDiscount {
     }
 
     /// Returns the `SK1ProductDiscount` if this `StoreProductDiscount` represents a `SKProductDiscount`.
-    @available(iOS 12.2, macOS 10.14.4, tvOS 12.2, watchOS 6.2, *)
     @objc public var sk1Discount: SK1ProductDiscount? {
         return (self.discount as? SK1StoreProductDiscount)?.underlyingSK1Discount
     }
@@ -254,18 +254,14 @@ extension StoreProductDiscount: Encodable {
 }
 
 extension StoreProductDiscount.DiscountType {
-    @available(iOS 11.2, macOS 10.13.2, tvOS 11.2, watchOS 6.2, *)
+
     static func from(sk1Discount: SK1ProductDiscount) -> Self? {
-        if #available(iOS 12.2, macOS 10.14.4, tvOS 12.2, *) {
-            switch sk1Discount.type {
-            case .introductory:
-                return .introductory
-            case .subscription:
-                return .promotional
-            @unknown default:
-                return nil
-            }
-        } else {
+        switch sk1Discount.type {
+        case .introductory:
+            return .introductory
+        case .subscription:
+            return .promotional
+        @unknown default:
             return nil
         }
     }
@@ -278,10 +274,20 @@ extension StoreProductDiscount.DiscountType {
         case SK2ProductDiscount.OfferType.promotional:
             return .promotional
         default:
+
+            // winBack discount type was added in iOS 18.0, but it's not recognized by Xcode versions <16.0.
+            #if compiler(>=6.0)
+            if #available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *),
+               case .winBack = sk2Discount.type {
+                return .winBack
+            }
+            #endif
+
             Logger.warn(Strings.storeKit.unknown_sk2_product_discount_type(rawValue: sk2Discount.type.rawValue))
             return nil
         }
     }
+
 }
 
 extension StoreProductDiscount.PaymentMode: Encodable {}

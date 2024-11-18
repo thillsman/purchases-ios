@@ -129,8 +129,10 @@ struct Template5View: TemplateViewType {
 
     @ViewBuilder
     private var headerImage: some View {
-        if let header = self.configuration.headerImageURL {
-            RemoteImage(url: header,
+        if let headerImageURL = self.configuration.headerImageURL {
+            let headerLowResImageURL = self.configuration.headerLowResImageURL
+            RemoteImage(url: headerImageURL,
+                        lowResUrl: headerLowResImageURL,
                         aspectRatio: self.headerAspectRatio,
                         maxWidth: .infinity)
             .clipped()
@@ -285,19 +287,20 @@ struct Template5View: TemplateViewType {
 
     private var footerView: some View {
         FooterView(configuration: self.configuration,
+                   locale: self.selectedLocalization.locale,
                    purchaseHandler: self.purchaseHandler,
                    displayingAllPlans: self.$displayingAllPlans)
     }
 
     @ViewBuilder
-    private func packageDiscountLabel(
+    private func packageBadgeLabel(
         _ package: TemplateViewConfiguration.Package,
         selected: Bool
     ) -> some View {
-        if let discount = package.discountRelativeToMostExpensivePerMonth {
+        if let badge = package.localization.offerBadge, !badge.isEmpty {
             let colors = self.configuration.colors
 
-            Text(Localization.localized(discount: discount, locale: self.locale))
+            Text(badge)
                 .textCase(.uppercase)
                 .padding(.vertical, 4)
                 .padding(.horizontal, 8)
@@ -414,7 +417,6 @@ private extension Template5View {
 
 }
 
-@available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *)
 private extension PaywallData.Configuration.Colors {
 
     var featureIcon: Color { self.accent1Color }

@@ -65,7 +65,6 @@ final class ProductsFetcherSK1: NSObject {
         )
     }
 
-    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     func products(withIdentifiers identifiers: Set<String>) async throws -> Set<SK1StoreProduct> {
         return try await Async.call { completion in
             self.products(withIdentifiers: identifiers, completion: completion)
@@ -256,3 +255,11 @@ private extension ProductsFetcherSK1 {
 // @unchecked because:
 // - It has mutable state, but it's made thread-safe through `queue`.
 extension ProductsFetcherSK1: @unchecked Sendable {}
+
+#if swift(>=5.8)
+#if hasFeature(RetroactiveAttribute)
+// Conformance should be safe since it is only used as dictionary key
+extension SKRequest: @unchecked @retroactive Sendable {}
+extension SKProductsRequest: @unchecked @retroactive Sendable {}
+#endif
+#endif

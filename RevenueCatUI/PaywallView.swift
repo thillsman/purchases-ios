@@ -29,22 +29,38 @@ public struct PaywallView: View {
     private let mode: PaywallViewMode
     private let fonts: PaywallFontProvider
     private let displayCloseButton: Bool
+    private let paywallViewOwnsPurchaseHandler: Bool
 
-    @Environment(\.locale)
-    private var locale
+    private var locale: Locale
 
     @StateObject
-    private var purchaseHandler: PurchaseHandler
+    private var internalPurchaseHandler: PurchaseHandler
+
+    @ObservedObject
+    private var externalPurchaseHandler: PurchaseHandler
+
+    private var purchaseHandler: PurchaseHandler {
+        paywallViewOwnsPurchaseHandler ? internalPurchaseHandler : externalPurchaseHandler
+    }
 
     @StateObject
     private var introEligibility: TrialOrIntroEligibilityChecker
 
     @State
     private var offering: Offering?
+
     @State
     private var customerInfo: CustomerInfo?
     @State
     private var error: NSError?
+
+    private var initializationError: NSError?
+
+    @Environment(\.onRequestedDismissal)
+    private var onRequestedDismissal: (() -> Void)?
+
+    @Environment(\.dismiss)
+    private var dismiss
 
     /// Create a view to display the paywall in `Offerings.current`.
     ///
@@ -57,12 +73,16 @@ public struct PaywallView: View {
     /// If you want to handle that, you can use ``init(offering:)`` instead.
     public init(
         fonts: PaywallFontProvider = DefaultPaywallFontProvider(),
-        displayCloseButton: Bool = false
+        displayCloseButton: Bool = false,
+        performPurchase: PerformPurchase? = nil,
+        performRestore: PerformRestore? = nil
     ) {
+        let purchaseHandler = PurchaseHandler.default(performPurchase: performPurchase, performRestore: performRestore)
         self.init(
             configuration: .init(
                 fonts: fonts,
-                displayCloseButton: displayCloseButton
+                displayCloseButton: displayCloseButton,
+                purchaseHandler: purchaseHandler
             )
         )
     }
@@ -80,44 +100,101 @@ public struct PaywallView: View {
     public init(
         offering: Offering,
         fonts: PaywallFontProvider = DefaultPaywallFontProvider(),
-        displayCloseButton: Bool = false
+        displayCloseButton: Bool = false,
+        performPurchase: PerformPurchase? = nil,
+        performRestore: PerformRestore? = nil
     ) {
+        let purchaseHandler = PurchaseHandler.default(performPurchase: performPurchase, performRestore: performRestore)
         self.init(
             configuration: .init(
                 offering: offering,
                 fonts: fonts,
-                displayCloseButton: displayCloseButton
+                displayCloseButton: displayCloseButton,
+                purchaseHandler: purchaseHandler
             )
         )
     }
 
     // @PublicForExternalTesting
-    init(configuration: PaywallViewConfiguration) {
+    init(configuration: PaywallViewConfiguration, paywallViewOwnsPurchaseHandler: Bool = true) {
+        self.paywallViewOwnsPurchaseHandler = paywallViewOwnsPurchaseHandler
+        if paywallViewOwnsPurchaseHandler {
+            self._internalPurchaseHandler = .init(wrappedValue: configuration.purchaseHandler)
+            self.externalPurchaseHandler = PurchaseHandler.default()
+        } else {
+            // this is unused and is only present to fulfill the need to have an object assigned
+            // to a @StateObject
+            self._internalPurchaseHandler = .init(wrappedValue: PurchaseHandler.default())
+            self.externalPurchaseHandler = configuration.purchaseHandler
+        }
+
         self._introEligibility = .init(wrappedValue: configuration.introEligibility ?? .default())
-        self._purchaseHandler = .init(wrappedValue: configuration.purchaseHandler ?? .default())
+
         self._offering = .init(
             initialValue: configuration.content.extractInitialOffering()
         )
         self._customerInfo = .init(
             initialValue: configuration.customerInfo ?? Self.loadCachedCustomerInfoIfPossible()
         )
+
         self.contentToDisplay = configuration.content
         self.mode = configuration.mode
         self.fonts = configuration.fonts
         self.displayCloseButton = configuration.displayCloseButton
+
+        self.initializationError = Self.checkForConfigurationConsistency(purchaseHandler: configuration.purchaseHandler)
+
+        self.locale = configuration.locale
+    }
+
+    private static func checkForConfigurationConsistency(purchaseHandler: PurchaseHandler) -> NSError? {
+        switch purchaseHandler.purchasesAreCompletedBy {
+        case .myApp:
+            if purchaseHandler.performPurchase == nil || purchaseHandler.performRestore == nil {
+                let missingBlocks: String
+                if purchaseHandler.performPurchase == nil && purchaseHandler.performRestore == nil {
+                    missingBlocks = "performPurchase and performRestore are"
+                } else if purchaseHandler.performPurchase == nil {
+                    missingBlocks = "performPurchase is"
+                } else {
+                    missingBlocks = "performRestore is"
+                }
+
+                let error = PaywallError.performPurchaseAndRestoreHandlersNotDefined(
+                    missingBlocks: missingBlocks
+                ) as NSError
+                Logger.error(error)
+
+                return error
+            }
+        case .revenueCat:
+            if purchaseHandler.performPurchase != nil || purchaseHandler.performRestore != nil {
+                Logger.warning(PaywallError.purchaseAndRestoreDefinedForRevenueCat)
+            }
+        }
+
+        return nil
     }
 
     // swiftlint:disable:next missing_docs
     public var body: some View {
         self.content
-            .displayError(self.$error, dismissOnClose: true)
+            .displayError(self.$error) {
+                guard let onRequestedDismissal = self.onRequestedDismissal else {
+                    self.dismiss()
+                    return
+                }
+                onRequestedDismissal()
+            }
     }
 
     @MainActor
     @ViewBuilder
     private var content: some View {
         VStack { // Necessary to work around FB12674350 and FB12787354
-            if self.introEligibility.isConfigured, self.purchaseHandler.isConfigured {
+            if let error = self.initializationError {
+                DebugErrorView(error.localizedDescription, releaseBehavior: .fatalError)
+            } else if self.introEligibility.isConfigured, self.purchaseHandler.isConfigured {
                 if let offering = self.offering, let customerInfo = self.customerInfo {
                     self.paywallView(for: offering,
                                      activelySubscribedProductIdentifiers: customerInfo.activeSubscriptions,
@@ -154,6 +231,7 @@ public struct PaywallView: View {
     }
 
     @ViewBuilder
+    // swiftlint:disable:next function_body_length
     private func paywallView(
         for offering: Offering,
         activelySubscribedProductIdentifiers: Set<String>,
@@ -161,7 +239,53 @@ public struct PaywallView: View {
         checker: TrialOrIntroEligibilityChecker,
         purchaseHandler: PurchaseHandler
     ) -> some View {
-        let (paywall, template, error) = offering.validatedPaywall(locale: self.locale)
+
+        #if PAYWALL_COMPONENTS
+        if let componentData = offering.paywallComponentsData {
+            TemplateComponentsView(
+                paywallComponentsData: componentData,
+                offering: offering,
+                onDismiss: {
+                    guard let onRequestedDismissal = self.onRequestedDismissal else {
+                        self.dismiss()
+                        return
+                    }
+                    onRequestedDismissal()
+                }
+            )
+            .environmentObject(self.introEligibility)
+            .environmentObject(self.purchaseHandler)
+        } else {
+
+            let (paywall, displayedLocale, template, error) = offering.validatedPaywall(locale: self.locale)
+
+            let paywallView = LoadedOfferingPaywallView(
+                offering: offering,
+                activelySubscribedProductIdentifiers: activelySubscribedProductIdentifiers,
+                paywall: paywall,
+                template: template,
+                mode: self.mode,
+                fonts: fonts,
+                displayCloseButton: self.displayCloseButton,
+                introEligibility: checker,
+                purchaseHandler: purchaseHandler,
+                locale: displayedLocale
+            )
+
+            if let error {
+                DebugErrorView(
+                    "\(error.description)\n" +
+                    "You can fix this by editing the paywall in the RevenueCat dashboard.\n" +
+                    "The displayed paywall contains default configuration.\n" +
+                    "This error will be hidden in production.",
+                    replacement: paywallView
+                )
+            } else {
+                paywallView
+            }
+        }
+        #else
+        let (paywall, displayedLocale, template, error) = offering.validatedPaywall(locale: self.locale)
 
         let paywallView = LoadedOfferingPaywallView(
             offering: offering,
@@ -172,7 +296,8 @@ public struct PaywallView: View {
             fonts: fonts,
             displayCloseButton: self.displayCloseButton,
             introEligibility: checker,
-            purchaseHandler: purchaseHandler
+            purchaseHandler: purchaseHandler,
+            locale: displayedLocale
         )
 
         if let error {
@@ -186,6 +311,7 @@ public struct PaywallView: View {
         } else {
             paywallView
         }
+        #endif
     }
 
     // MARK: -
@@ -261,14 +387,14 @@ struct LoadedOfferingPaywallView: View {
     private let mode: PaywallViewMode
     private let fonts: PaywallFontProvider
     private let displayCloseButton: Bool
+    private let showZeroDecimalPlacePrices: Bool
 
     @StateObject
     private var introEligibility: IntroEligibilityViewModel
     @ObservedObject
     private var purchaseHandler: PurchaseHandler
 
-    @Environment(\.locale)
-    private var locale
+    private var locale: Locale
 
     @Environment(\.onRequestedDismissal)
     private var onRequestedDismissal: (() -> Void)?
@@ -288,7 +414,8 @@ struct LoadedOfferingPaywallView: View {
         fonts: PaywallFontProvider,
         displayCloseButton: Bool,
         introEligibility: TrialOrIntroEligibilityChecker,
-        purchaseHandler: PurchaseHandler
+        purchaseHandler: PurchaseHandler,
+        locale: Locale
     ) {
         self.offering = offering
         self.activelySubscribedProductIdentifiers = activelySubscribedProductIdentifiers
@@ -301,6 +428,12 @@ struct LoadedOfferingPaywallView: View {
             wrappedValue: .init(introEligibilityChecker: introEligibility)
         )
         self._purchaseHandler = .init(initialValue: purchaseHandler)
+        self.locale = locale
+        if Purchases.isConfigured, let currentCountry = Purchases.shared.storeFrontCountryCode {
+            self.showZeroDecimalPlacePrices = self.paywall.zeroDecimalPlaceCountries.contains(currentCountry)
+        } else {
+            self.showZeroDecimalPlacePrices = false
+        }
     }
 
     var body: some View {
@@ -328,7 +461,8 @@ struct LoadedOfferingPaywallView: View {
             template: self.template,
             mode: self.mode,
             fonts: self.fonts,
-            locale: self.locale
+            locale: self.locale,
+            showZeroDecimalPlacePrices: self.showZeroDecimalPlacePrices
         )
 
         let view = self.paywall

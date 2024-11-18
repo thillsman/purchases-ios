@@ -28,7 +28,8 @@ final class GetCustomerInfoOperation: CacheableNetworkOperation {
             configuration: configuration,
             customerInfoResponseHandler: .init(
                 offlineCreator: offlineCreator,
-                userID: configuration.appUserID
+                userID: configuration.appUserID,
+                failIfInvalidSubscriptionKeyDetectedInDebug: false
             ),
             customerInfoCallbackCache: customerInfoCallbackCache)
     }
@@ -66,6 +67,9 @@ final class GetCustomerInfoOperation: CacheableNetworkOperation {
     }
 
 }
+
+// Restating inherited @unchecked Sendable from Foundation's Operation
+extension GetCustomerInfoOperation: @unchecked Sendable {}
 
 private extension GetCustomerInfoOperation {
 

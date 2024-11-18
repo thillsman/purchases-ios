@@ -13,7 +13,6 @@
 
 import Foundation
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
 internal enum Async {
 
     /// Invokes an `async throws` method and calls `completion` with the result.
@@ -81,7 +80,7 @@ internal enum Async {
     static func call<Value, Error: Swift.Error>(
         method: (@escaping @Sendable (Result<Value, Error>) -> Void) -> Void
     ) async throws -> Value {
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withUnsafeThrowingContinuation { continuation in
             @Sendable
             func complete(_ result: Result<Value, Error>) {
                 continuation.resume(with: result)
@@ -102,7 +101,10 @@ internal enum Async {
     static func call<Value>(
         method: (@escaping @Sendable (Value) -> Void) -> Void
     ) async -> Value {
-        return await withCheckedContinuation { continuation in
+        // Note: We're using UnsafeContinuation instead of Checked because
+        // of a crash in iOS 18.0 devices when CheckedContinuations are used.
+        // See: https://github.com/RevenueCat/purchases-ios/issues/4177
+        return await withUnsafeContinuation { continuation in
             @Sendable
             func complete(_ value: Value) {
                 continuation.resume(with: .success(value))
@@ -127,7 +129,6 @@ internal enum Async {
     ///     }
     /// }
     /// ```
-    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     static func retry<T>(
         maximumRetries: Int = 5,
         pollInterval: DispatchTimeInterval = .milliseconds(300),
@@ -152,7 +153,6 @@ internal enum Async {
 
 }
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
 internal extension AsyncSequence {
 
     /// Returns the elements of the asynchronous sequence.
@@ -164,7 +164,6 @@ internal extension AsyncSequence {
 
 }
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
 internal extension AsyncSequence {
 
     func toAsyncStream() -> AsyncStream<Element> {

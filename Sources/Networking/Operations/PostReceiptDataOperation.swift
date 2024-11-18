@@ -31,7 +31,8 @@ final class PostReceiptDataOperation: CacheableNetworkOperation {
             postData: postData,
             customerInfoResponseHandler: .init(
                 offlineCreator: offlineCustomerInfoCreator,
-                userID: configuration.appUserID
+                userID: configuration.appUserID,
+                failIfInvalidSubscriptionKeyDetectedInDebug: true
             ),
             customerInfoCallbackCache: customerInfoCallbackCache
         )
@@ -96,7 +97,7 @@ final class PostReceiptDataOperation: CacheableNetworkOperation {
     }
 
     private func post(completion: @escaping () -> Void) {
-        let request = HTTPRequest(method: .post(self.postData), path: .postReceiptData)
+        let request = HTTPRequest(method: .post(self.postData), path: .postReceiptData, isRetryable: true)
 
         self.httpClient.perform(
             request
@@ -114,6 +115,9 @@ final class PostReceiptDataOperation: CacheableNetworkOperation {
     }
 
 }
+
+// Restating inherited @unchecked Sendable from Foundation's Operation
+extension PostReceiptDataOperation: @unchecked Sendable {}
 
 extension PostReceiptDataOperation {
 
@@ -134,6 +138,10 @@ extension PostReceiptDataOperation {
         /// - Note: this is only used for the backend to disambiguate receipts created in `SKTestSession`s.
         let testReceiptIdentifier: String?
 
+        /// The [AppTransaction](https://developer.apple.com/documentation/storekit/apptransaction) JWS token
+        /// retrieved from StoreKit 2.
+        let appTransaction: String?
+        let metadata: [String: String]?
     }
 
     struct Paywall {
@@ -162,7 +170,8 @@ extension PostReceiptDataOperation.PostData {
         productData: ProductRequestData?,
         receipt: EncodedAppleReceipt,
         observerMode: Bool,
-        testReceiptIdentifier: String?
+        testReceiptIdentifier: String?,
+        appTransaction: String?
     ) {
         self.init(
             appUserID: data.appUserID,
@@ -179,7 +188,9 @@ extension PostReceiptDataOperation.PostData {
             initiationSource: data.source.initiationSource,
             subscriberAttributesByKey: data.unsyncedAttributes,
             aadAttributionToken: data.aadAttributionToken,
-            testReceiptIdentifier: testReceiptIdentifier
+            testReceiptIdentifier: testReceiptIdentifier,
+            appTransaction: appTransaction,
+            metadata: data.metadata
         )
     }
 
@@ -204,6 +215,8 @@ private extension PurchasedTransactionData {
 private extension PostReceiptDataOperation {
 
     func printReceiptData() {
+        guard self.postData.receipt != .empty else { return }
+
         switch self.postData.receipt {
         case .jws(let content):
             self.log(Strings.receipt.posting_jws(
@@ -234,6 +247,8 @@ private extension PostReceiptDataOperation {
             } catch {
                 Logger.appleError(Strings.receipt.parse_receipt_locally_error(error: error))
             }
+        case .empty:
+            return
         }
     }
 
@@ -257,13 +272,14 @@ extension PostReceiptDataOperation.PostData: Encodable {
         case appliedTargetingRule
         case paywall
         case testReceiptIdentifier = "test_receipt_identifier"
+        case appTransaction = "app_transaction"
+        case metadata
 
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
-        try container.encode(self.fetchToken, forKey: .fetchToken)
         try container.encode(self.appUserID, forKey: .appUserID)
         try container.encode(self.isRestore, forKey: .isRestore)
         try container.encode(self.observerMode, forKey: .observerMode)
@@ -273,6 +289,9 @@ extension PostReceiptDataOperation.PostData: Encodable {
             try productData.encode(to: encoder)
         }
 
+        try container.encodeIfPresent(self.fetchToken, forKey: .fetchToken)
+        try container.encodeIfPresent(self.appTransaction, forKey: .appTransaction)
+        try container.encodeIfPresent(self.metadata, forKey: .metadata)
         try container.encodeIfPresent(self.presentedOfferingIdentifier, forKey: .presentedOfferingIdentifier)
         try container.encodeIfPresent(self.presentedPlacementIdentifier, forKey: .presentedPlacementIdentifier)
         try container.encodeIfPresent(self.appliedTargetingRule, forKey: .appliedTargetingRule)
@@ -289,7 +308,7 @@ extension PostReceiptDataOperation.PostData: Encodable {
         try container.encodeIfPresent(self.testReceiptIdentifier, forKey: .testReceiptIdentifier)
     }
 
-    var fetchToken: String { return self.receipt.serialized() }
+    var fetchToken: String? { return self.receipt.serialized() }
 
 }
 
@@ -322,10 +341,11 @@ extension PostReceiptDataOperation.AppliedTargetingRule: Codable {
 
 extension PostReceiptDataOperation.PostData: HTTPRequestBody {
 
-    var contentForSignature: [(key: String, value: String)] {
+    var contentForSignature: [(key: String, value: String?)] {
         return [
             (Self.CodingKeys.appUserID.stringValue, self.appUserID),
-            (Self.CodingKeys.fetchToken.stringValue, self.fetchToken)
+            (Self.CodingKeys.fetchToken.stringValue, self.fetchToken),
+            (Self.CodingKeys.appTransaction.stringValue, self.appTransaction)
         ]
     }
 
@@ -372,6 +392,8 @@ private extension EncodedAppleReceipt {
                 Logger.warn(Strings.storeKit.sk2_error_encoding_receipt(error))
                 return ""
             }
+        case .empty:
+            return "empty"
         }
     }
 

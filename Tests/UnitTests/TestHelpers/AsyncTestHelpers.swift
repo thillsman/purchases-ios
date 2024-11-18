@@ -60,7 +60,6 @@ func waitUntilValue<Value>(
 
 private struct ConditionFailedError: Error {}
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
 func asyncWait(
     description: String? = nil,
     timeout: DispatchTimeInterval = defaultTimeout,
@@ -86,7 +85,6 @@ func asyncWait(
 // but it doesn't seem to play well with async-await.
 // Also `toEventually` (Quick nor Nimble) don't support `async`.
 // Fix-me: remove once we can use Quick v6.x:
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
 func asyncWait<T>(
     timeout: DispatchTimeInterval = defaultTimeout,
     pollInterval: DispatchTimeInterval = defaultPollInterval,
@@ -101,7 +99,7 @@ func asyncWait<T>(
     var foundCorrectValue = false
 
     func timedOut() -> Bool {
-        return DispatchTimeInterval(Date().timeIntervalSince(start)) > timeout
+        return DispatchTimeInterval(Date().timeIntervalSince(start)).nanoseconds > timeout.nanoseconds
     }
 
     repeat {

@@ -164,7 +164,7 @@ struct Template2View: TemplateViewType {
 
     @ViewBuilder
     private var packages: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Constants.defaultPackageVerticalSpacing / 2.0) {
             ForEach(self.configuration.packages.all, id: \.content.id) { package in
                 let isSelected = self.selectedPackage.content === package.content
 
@@ -278,6 +278,7 @@ struct Template2View: TemplateViewType {
 
     private var footer: some View {
         FooterView(configuration: self.configuration,
+                   locale: self.selectedLocalization.locale,
                    purchaseHandler: self.purchaseHandler,
                    displayingAllPlans: self.$displayingAllPlans)
     }
@@ -286,9 +287,10 @@ struct Template2View: TemplateViewType {
     private var iconImage: some View {
         Group {
             #if canImport(UIKit)
-            if let url = self.configuration.iconImageURL {
+            if let iconUrl = self.configuration.iconImageURL {
+                let iconLowResURL = self.configuration.iconLowResImageURL
                 Group {
-                    if url.pathComponents.contains(PaywallData.appIconPlaceholder) {
+                    if iconUrl.pathComponents.contains(PaywallData.appIconPlaceholder) {
                         if let appIcon = Bundle.main.appIcon {
                             Image(uiImage: appIcon)
                                 .resizable()
@@ -297,7 +299,7 @@ struct Template2View: TemplateViewType {
                             self.placeholderIconImage
                         }
                     } else {
-                        RemoteImage(url: url, aspectRatio: 1, maxWidth: self.iconSize)
+                        RemoteImage(url: iconUrl, lowResUrl: iconLowResURL, aspectRatio: 1, maxWidth: self.iconSize)
                     }
                 }
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

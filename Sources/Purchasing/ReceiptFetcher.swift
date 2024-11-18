@@ -64,15 +64,10 @@ class ReceiptFetcher {
             }
 
         case let .retryUntilProductIsFound(productIdentifier, maximumRetries, sleepDuration):
-            if #available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *) {
-                Async.call(with: completion) {
-                    await self.refreshReceipt(untilProductIsFound: productIdentifier,
-                                              maximumRetries: maximumRetries,
-                                              sleepDuration: sleepDuration)
-                }
-            } else {
-                Logger.warn(Strings.receipt.receipt_retrying_mechanism_not_available)
-                self.receiptData(refreshPolicy: .always, completion: completion)
+            Async.call(with: completion) {
+                await self.refreshReceipt(untilProductIsFound: productIdentifier,
+                                          maximumRetries: maximumRetries,
+                                          sleepDuration: sleepDuration)
             }
 
         case .never:
@@ -80,9 +75,11 @@ class ReceiptFetcher {
         }
     }
 
-    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     func receiptData(refreshPolicy: ReceiptRefreshPolicy) async -> Data? {
-        return await withCheckedContinuation { continuation in
+        // Note: We're using UnsafeContinuation instead of Checked because
+        // of a crash in iOS 18.0 devices when CheckedContinuations are used.
+        // See: https://github.com/RevenueCat/purchases-ios/issues/4177
+        return await withUnsafeContinuation { continuation in
             self.receiptData(refreshPolicy: refreshPolicy) { result, _ in
                 continuation.resume(returning: result)
             }
@@ -95,7 +92,7 @@ class ReceiptFetcher {
         }
 
         let timeSinceLastRequest = DispatchTimeInterval(self.systemInfo.clock.now.timeIntervalSince(lastRefresh))
-        return timeSinceLastRequest < ReceiptRefreshPolicy.alwaysRefreshThrottleDuration
+        return timeSinceLastRequest.nanoseconds < ReceiptRefreshPolicy.alwaysRefreshThrottleDuration.nanoseconds
     }
 
 }
@@ -160,16 +157,17 @@ private extension ReceiptFetcher {
     }
 
     /// `async` version of `refreshReceipt(_:)`
-    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     func refreshReceipt() async -> (Data, URL?) {
-        await withCheckedContinuation { continuation in
+        // Note: We're using UnsafeContinuation instead of Checked because
+        // of a crash in iOS 18.0 devices when CheckedContinuations are used.
+        // See: https://github.com/RevenueCat/purchases-ios/issues/4177
+        await withUnsafeContinuation { continuation in
             self.refreshReceipt {
                 continuation.resume(returning: ($0, $1))
             }
         }
     }
 
-    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     @MainActor
     private func refreshReceipt(
         untilProductIsFound productIdentifier: String,

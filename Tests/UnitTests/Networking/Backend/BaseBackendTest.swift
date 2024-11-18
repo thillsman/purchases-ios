@@ -32,6 +32,7 @@ class BaseBackendTests: TestCase {
     private(set) var offlineEntitlements: OfflineEntitlementsAPI!
     private(set) var identity: IdentityAPI!
     private(set) var internalAPI: InternalAPI!
+    private(set) var customerCenterConfig: CustomerCenterConfigAPI!
 
     static let apiKey = "asharedsecret"
     static let userID = "user"
@@ -42,13 +43,23 @@ class BaseBackendTests: TestCase {
         self.createDependencies(dangerousSettings: self.dangerousSettings)
     }
 
-    final func createDependencies(dangerousSettings: DangerousSettings? = nil) {
+    final func createDependencies(dangerousSettings: DangerousSettings? = nil,
+                                  localesProvider: PreferredLocalesProviderType = MockPreferredLocalesProvider()) {
+        // Need to force StoreKit 1 because we use iOS 13 snapshots
+        // for watchOS tests which contain StoreKit 1 headers
+        #if os(watchOS)
+        let storeKitVersion = StoreKitVersion.storeKit1
+        #else
+        let storeKitVersion = StoreKitVersion.default
+        #endif
         self.systemInfo =  SystemInfo(
             platformInfo: nil,
             finishTransactions: true,
             storefrontProvider: MockStorefrontProvider(),
+            storeKitVersion: storeKitVersion,
             responseVerificationMode: self.responseVerificationMode,
-            dangerousSettings: dangerousSettings
+            dangerousSettings: dangerousSettings,
+            preferredLocalesProvider: localesProvider
         )
         self.httpClient = self.createClient()
         self.operationDispatcher = MockOperationDispatcher()
@@ -73,13 +84,15 @@ class BaseBackendTests: TestCase {
         self.offerings = OfferingsAPI(backendConfig: backendConfig)
         self.offlineEntitlements = OfflineEntitlementsAPI(backendConfig: backendConfig)
         self.internalAPI = InternalAPI(backendConfig: backendConfig)
+        self.customerCenterConfig = CustomerCenterConfigAPI(backendConfig: backendConfig)
 
         self.backend = Backend(backendConfig: backendConfig,
                                customerAPI: customer,
                                identityAPI: self.identity,
                                offeringsAPI: self.offerings,
                                offlineEntitlements: self.offlineEntitlements,
-                               internalAPI: self.internalAPI)
+                               internalAPI: self.internalAPI,
+                               customerCenterConfig: self.customerCenterConfig)
     }
 
     var verificationMode: Configuration.EntitlementVerificationMode {
@@ -116,11 +129,7 @@ extension BaseBackendTests {
     }
 
     private var responseVerificationMode: Signing.ResponseVerificationMode {
-        if #available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *) {
-            return Signing.verificationMode(with: self.verificationMode)
-        } else {
-            return .disabled
-        }
+        return Signing.verificationMode(with: self.verificationMode)
     }
 
 }
@@ -156,6 +165,20 @@ final class MockStorefrontProvider: StorefrontProviderType {
         } else {
             return nil
         }
+    }
+
+}
+
+final class MockPreferredLocalesProvider: PreferredLocalesProviderType {
+
+    var preferredLanguages: [String] {
+        stubbedLocales
+    }
+
+    private let stubbedLocales: [String]
+
+    init(stubbedLocales: [String] = ["en_EN"]) {
+        self.stubbedLocales = stubbedLocales
     }
 
 }

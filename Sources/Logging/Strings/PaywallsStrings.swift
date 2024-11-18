@@ -24,8 +24,12 @@ enum PaywallsStrings {
     case caching_presented_paywall
     case clearing_presented_paywall
 
+    // MARK: - Localization
+
+    case empty_localization
     case looking_up_localization(preferred: [Locale], search: [Locale])
     case found_localization(Locale)
+    case default_localization(localeIdentifier: String)
     case fallback_localization(localeIdentifier: String)
 
     // MARK: - Events
@@ -38,6 +42,8 @@ enum PaywallsStrings {
     case event_flush_with_empty_store
     case event_flush_starting(count: Int)
     case event_sync_failed(Error)
+    case event_cannot_serialize
+    case event_cannot_deserialize
 
 }
 
@@ -60,12 +66,18 @@ extension PaywallsStrings: LogMessage {
         case .clearing_presented_paywall:
             return "PurchasesOrchestrator: clearing presented paywall"
 
+        case .empty_localization:
+            return "Looking up localization but found no strings"
+
         case let .looking_up_localization(preferred, search):
             return "Looking up localized configuration for \(preferred.map(\.identifier)), " +
             "searching for \(search.map(\.identifier))"
 
         case let .found_localization(locale):
             return "Found localized configuration for '\(locale.identifier)'"
+
+        case let .default_localization(localeIdentifier):
+            return "No localized configuration found, using default: \(localeIdentifier)"
 
         case let .fallback_localization(localeIdentifier):
             return "Failed looking up localization, using fallback: \(localeIdentifier)"
@@ -93,6 +105,12 @@ extension PaywallsStrings: LogMessage {
 
         case let .event_sync_failed(error):
             return "Paywall event flushing failed, will retry. Error: \((error as NSError).localizedDescription)"
+
+        case .event_cannot_serialize:
+            return "Couldn't serialize PaywallEvent to storage."
+
+        case .event_cannot_deserialize:
+            return "Couldn't deserialize PaywallEvent from storage."
         }
     }
 

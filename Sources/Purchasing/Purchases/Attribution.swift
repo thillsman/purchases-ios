@@ -281,6 +281,19 @@ public extension Attribution {
     }
 
     /**
+     * Subscriber attribute associated with the Kochava Device ID for the user.
+     * Recommended for the RevenueCat Kochava integration.
+     *
+     * #### Related Articles
+     * - [Kochava RevenueCat Integration](https://docs.revenuecat.com/docs/kochava)
+     *
+     * - Parameter kochavaDeviceID: Empty String or `nil` will delete the subscriber attribute.
+     */
+    @objc func setKochavaDeviceID(_ kochavaDeviceID: String?) {
+        self.subscriberAttributesManager.setKochavaDeviceID(kochavaDeviceID, appUserID: appUserID)
+    }
+
+    /**
      * Subscriber attribute associated with the Mixpanel Distinct ID for the user.
      * Optional for the RevenueCat Mixpanel integration.
      *
@@ -304,6 +317,17 @@ public extension Attribution {
      */
     @objc func setFirebaseAppInstanceID(_ firebaseAppInstanceID: String?) {
         self.subscriberAttributesManager.setFirebaseAppInstanceID(firebaseAppInstanceID, appUserID: appUserID)
+    }
+
+    /**
+     * Subscriber attribute associated with the Tenjin analytics installation ID for the user.
+     * Required for the RevenueCat Tenjin integration.
+     *
+     *- Parameter firebaseAppInstanceID: Empty String or `nil` will delete the subscriber attribute.
+     */
+    @objc func setTenjinAnalyticsInstallationID(_ tenjinAnalyticsInstallationID: String?) {
+        self.subscriberAttributesManager.setTenjinAnalyticsInstallationID(tenjinAnalyticsInstallationID,
+                                                                          appUserID: appUserID)
     }
 
     /**
@@ -417,7 +441,6 @@ extension Attribution {
         self.subscriberAttributesManager.unsyncedAttributesByKey(appUserID: appUserID)
     }
 
-    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     var unsyncedAdServicesToken: String? {
         get async {
             return self.automaticAdServicesAttributionTokenCollection
@@ -427,8 +450,7 @@ extension Attribution {
     }
 
     func unsyncedAdServicesToken(_ completion: @escaping (String?) -> Void) {
-        guard #available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *),
-              self.automaticAdServicesAttributionTokenCollection else {
+        guard self.automaticAdServicesAttributionTokenCollection else {
             completion(nil)
             return
         }

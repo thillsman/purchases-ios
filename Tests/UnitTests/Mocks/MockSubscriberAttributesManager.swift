@@ -177,6 +177,18 @@ class MockSubscriberAttributesManager: SubscriberAttributesManager {
         invokedSetCleverTapIDParametersList.append((cleverTapID, appUserID))
     }
 
+    var invokedSetKochavaDeviceID = false
+    var invokedSetKochavaDeviceIDCount = 0
+    var invokedSetKochavaDeviceIDParameters: (KochavaDeviceID: String?, appUserID: String?)?
+    var invokedSetKochavaDeviceIDParametersList = [(KochavaDeviceID: String?, appUserID: String?)]()
+
+    override func setKochavaDeviceID(_ kochavaDeviceID: String?, appUserID: String) {
+        invokedSetKochavaDeviceID = true
+        invokedSetKochavaDeviceIDCount += 1
+        invokedSetKochavaDeviceIDParameters = (kochavaDeviceID, appUserID)
+        invokedSetKochavaDeviceIDParametersList.append((kochavaDeviceID, appUserID))
+    }
+
     var invokedSetMixpanelDistinctID = false
     var invokedSetMixpanelDistinctIDCount = 0
     var invokedSetMixpanelDistinctIDParameters: (mixpanelDistinctID: String?, appUserID: String?)?
@@ -199,6 +211,18 @@ class MockSubscriberAttributesManager: SubscriberAttributesManager {
         invokedSetFirebaseAppInstanceIDCount += 1
         invokedSetFirebaseAppInstanceIDParameters = (firebaseAppInstanceID, appUserID)
         invokedSetFirebaseAppInstanceIDParametersList.append((firebaseAppInstanceID, appUserID))
+    }
+
+    var invokedSetTenjinAnalyticsInstallationID = false
+    var invokedSetTenjinAnalyticsInstallationIDCount = 0
+    var invokedSetTenjinAnalyticsInstallationIDParameters: (tenjinID: String?, appUserID: String?)?
+    var invokedSetTenjinAnalyticsInstallationIDParametersList = [(tenjinID: String?, appUserID: String?)]()
+
+    override func setTenjinAnalyticsInstallationID(_ tenjinAnalyticsInstallationID: String?, appUserID: String) {
+        invokedSetTenjinAnalyticsInstallationID = true
+        invokedSetTenjinAnalyticsInstallationIDCount += 1
+        invokedSetTenjinAnalyticsInstallationIDParameters = (tenjinAnalyticsInstallationID, appUserID)
+        invokedSetTenjinAnalyticsInstallationIDParametersList.append((tenjinAnalyticsInstallationID, appUserID))
     }
 
     var invokedSetMediaSource = false
@@ -346,3 +370,5 @@ class MockSubscriberAttributesManager: SubscriberAttributesManager {
     }
 
 }
+
+extension MockSubscriberAttributesManager: @unchecked Sendable {}

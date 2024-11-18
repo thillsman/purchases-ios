@@ -44,7 +44,8 @@ struct LoadingPaywallView: View {
             fonts: DefaultPaywallFontProvider(),
             displayCloseButton: self.displayCloseButton,
             introEligibility: Self.introEligibility,
-            purchaseHandler: Self.purchaseHandler
+            purchaseHandler: Self.purchaseHandler,
+            locale: Locale.current
         )
         .allowsHitTesting(false)
         .redacted(reason: .placeholder)
@@ -52,6 +53,7 @@ struct LoadingPaywallView: View {
         .background {
             TemplateBackgroundImageView(
                 url: Self.defaultPaywall.backgroundImageURL,
+                lowResUrl: Self.defaultPaywall.backgroundLowResImageURL,
                 blurred: true,
                 ignoreSafeArea: self.mode.shouldDisplayBackground
             )
@@ -142,6 +144,15 @@ private extension LoadingPaywallView {
 
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, *)
 private final class LoadingPaywallPurchases: PaywallPurchasesType {
+
+    var purchasesAreCompletedBy: PurchasesAreCompletedBy {
+        get { return .myApp }
+        set { _ = newValue }
+    }
+
+    func customerInfo() async throws -> RevenueCat.CustomerInfo {
+        fatalError("Should not be able to purchase")
+    }
 
     func purchase(package: Package) async throws -> PurchaseResultData {
         fatalError("Should not be able to purchase")

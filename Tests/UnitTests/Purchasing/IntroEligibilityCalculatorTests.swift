@@ -3,7 +3,6 @@ import XCTest
 
 @testable import RevenueCat
 
-@available(iOS 12.0, macOS 10.14, macCatalyst 13.0, tvOS 12.0, watchOS 6.2, *)
 class IntroEligibilityCalculatorTests: TestCase {
 
     private var calculator: IntroEligibilityCalculator!
@@ -16,7 +15,8 @@ class IntroEligibilityCalculatorTests: TestCase {
 
         let platformInfo = Purchases.PlatformInfo(flavor: "iOS", version: "3.2.1")
         self.systemInfo = MockSystemInfo(platformInfo: platformInfo, finishTransactions: true)
-        self.mockProductsManager = MockProductsManager(systemInfo: systemInfo,
+        self.mockProductsManager = MockProductsManager(diagnosticsTracker: nil,
+                                                       systemInfo: systemInfo,
                                                        requestTimeout: Configuration.storeKitRequestTimeoutDefault)
         self.calculator = IntroEligibilityCalculator(productsManager: mockProductsManager,
                                                      receiptParser: mockReceiptParser)
@@ -284,7 +284,6 @@ class IntroEligibilityCalculatorTests: TestCase {
     }
 }
 
-@available(iOS 12.0, macOS 10.14, macCatalyst 13.0, tvOS 12.0, watchOS 6.2, *)
 private extension IntroEligibilityCalculatorTests {
 
     func testEligibility(

@@ -32,7 +32,7 @@ class PaywallFooterTests: TestCase {
     func testPresentWithPurchaseStarted() throws {
         var packageBeingPurchased: Package?
 
-        try Text("")
+        _ = try Text("")
             .paywallFooter(
                 offering: Self.offering,
                 customerInfo: TestData.customerInfo,
@@ -52,7 +52,7 @@ class PaywallFooterTests: TestCase {
     func testPresentWithPurchaseHandler() throws {
         var customerInfo: CustomerInfo?
 
-        try Text("")
+        _ = try Text("")
             .paywallFooter(
                 offering: Self.offering,
                 customerInfo: TestData.customerInfo,
@@ -72,7 +72,7 @@ class PaywallFooterTests: TestCase {
     func testPresentWithPurchaseFailureHandler() throws {
         var error: NSError?
 
-        try Text("")
+        _ = try Text("")
             .paywallFooter(
                 offering: Self.offering,
                 customerInfo: TestData.customerInfo,
@@ -92,7 +92,7 @@ class PaywallFooterTests: TestCase {
     func testPresentWithRestoreStarted() throws {
         var started = false
 
-        try Text("")
+        _ = try Text("")
             .paywallFooter(
                 offering: Self.offering,
                 customerInfo: TestData.customerInfo,
@@ -112,7 +112,7 @@ class PaywallFooterTests: TestCase {
     func testPresentWithRestoreHandler() throws {
         var customerInfo: CustomerInfo?
 
-        try Text("")
+        _ = try Text("")
             .paywallFooter(
                 offering: Self.offering,
                 customerInfo: TestData.customerInfo,
@@ -134,7 +134,7 @@ class PaywallFooterTests: TestCase {
     func testPresentWithRestoreFailureHandler() throws {
         var error: NSError?
 
-        try Text("")
+        _ = try Text("")
             .paywallFooter(
                 offering: Self.offering,
                 customerInfo: TestData.customerInfo,
@@ -151,11 +151,66 @@ class PaywallFooterTests: TestCase {
         expect(error).toEventually(matchError(Self.failureError))
     }
 
+    func testExternalRestoreHandler() async throws {
+        var restoreCodeExecuted = false
+
+        let handler = Self.externalPurchaseHandler(performPurchase: { _ in
+            return (userCancelled: true, error: nil)
+        }, performRestore: {
+            restoreCodeExecuted = true
+            return (success: true, error: nil)
+        })
+
+        _ = try Text("")
+            .paywallFooter(
+                offering: Self.offering,
+                customerInfo: TestData.customerInfo,
+                introEligibility: .producing(eligibility: .eligible),
+                purchaseHandler: handler
+            )
+            .addToHierarchy()
+
+        _ = try await handler.restorePurchases()
+
+        expect(restoreCodeExecuted).to(beTrue())
+    }
+
+    func testExternalPurchaseHandler() async throws {
+        var purchaseCodeExecuted = false
+
+        let handler = Self.externalPurchaseHandler(performPurchase: { _ in
+            purchaseCodeExecuted = true
+            return (userCancelled: true, error: nil)
+        }, performRestore: {
+            return (success: true, error: nil)
+        })
+
+        _ = try Text("")
+            .paywallFooter(
+                offering: Self.offering,
+                customerInfo: TestData.customerInfo,
+                introEligibility: .producing(eligibility: .eligible),
+                purchaseHandler: handler
+            )
+            .addToHierarchy()
+
+        _ = try await handler.purchase(package: TestData.packageWithIntroOffer)
+
+        expect(purchaseCodeExecuted).to(beTrue())
+    }
+
     private static let purchaseHandler: PurchaseHandler = .mock()
     private static let failingHandler: PurchaseHandler = .failing(failureError)
     private static let offering = TestData.offeringWithNoIntroOffer
     private static let package = TestData.annualPackage
     private static let failureError: Error = ErrorCode.storeProblemError
+    private static func externalPurchaseHandler(performPurchase: PerformPurchase? = nil,
+                                                performRestore: PerformRestore? = nil)
+    -> PurchaseHandler {
+        .mock(purchasesAreCompletedBy: .myApp,
+              performPurchase: performPurchase,
+              performRestore: performRestore)
+    }
 
 }
 

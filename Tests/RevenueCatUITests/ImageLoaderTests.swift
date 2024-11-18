@@ -138,7 +138,7 @@ class ImageLoaderTests: TestCase {
         let newImageRequested = self.expectation(description: "Image request")
         Task {
             newImageRequested.fulfill()
-            await self.loader.load(url: Self.url)
+            await self.loader.load(url: Self.url2)
         }
 
         // 5. Verify image is reset
@@ -150,6 +150,53 @@ class ImageLoaderTests: TestCase {
 
         // 7. Verify new image is loaded
         expect(self.loader.result).to(beSuccess())
+    }
+
+    func testReloadingSameImageDoesNotResetPreviousResult() async throws {
+        let session = MockAsyncURLSession()
+        self.loader = .init(urlSession: session)
+
+        func returnImage() async throws {
+            let resultSet = self.expectation(description: "Result set")
+            resultSet.assertForOverFulfill = false
+
+            let cancellable = self.loader.$result
+                .filter { $0 != nil }
+                .sink { _ in resultSet.fulfill() }
+            defer { cancellable.cancel() }
+
+            let completionSet = self.expectation(that: \.completionSet, on: session, willEqual: true)
+            await self.fulfillment(of: [completionSet], timeout: 1)
+
+            session.completion?(.success(try Self.createValidResponse(httpResponse: true)))
+            await self.fulfillment(of: [resultSet], timeout: 1)
+        }
+
+        // 1. Request image
+        Task {
+            await self.loader.load(url: Self.url)
+        }
+
+        // 2. Return image
+        try await returnImage()
+
+        // 3. Verify result
+        expect(self.loader.result).to(beSuccess())
+        let firstResult = self.loader.result
+
+        // 4. Request the same image again
+        let newImageRequested = self.expectation(description: "Image request")
+        Task {
+            newImageRequested.fulfill()
+            await self.loader.load(url: Self.url)
+        }
+
+        // 5. Verify image is not reset
+        await self.fulfillment(of: [newImageRequested], timeout: 1)
+        expect(self.loader.result).toNot(beNil())
+
+        // 6. Verify the image is unchanged
+        expect(self.loader.result?.value) == firstResult?.value
     }
 
     private static let url = URL(string: "https://assets.revenuecat.com/test")!
@@ -190,7 +237,7 @@ class ImageLoaderTests: TestCase {
             throw XCTSkip("API only available on iOS 16")
         }
 
-        let renderedImage = try XCTUnwrap(self.loader.result?.value?.getUIImage())
+        let renderedImage = try XCTUnwrap(self.loader.result?.value?.image.getUIImage())
         let expectedImage = try XCTUnwrap(Image(uiImage: try XCTUnwrap(UIImage(data: data)))
             .getUIImage())
 
@@ -238,7 +285,10 @@ private final class MockAsyncURLSession: NSObject, URLSessionType {
         self.completionSet = false
         self.completion = nil
 
-        return try await withCheckedContinuation { continuation in
+        // Note: We're using UnsafeContinuation instead of Checked because
+        // of a crash in iOS 18.0 devices when CheckedContinuations are used.
+        // See: https://github.com/RevenueCat/purchases-ios/issues/4177
+        return try await withUnsafeContinuation { continuation in
             self.completion = { value in
                 continuation.resume(returning: value)
             }
