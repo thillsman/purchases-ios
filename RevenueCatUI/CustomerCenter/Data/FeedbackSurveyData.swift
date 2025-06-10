@@ -22,17 +22,31 @@ import RevenueCat
 @available(macOS, unavailable)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
-class FeedbackSurveyData: ObservableObject {
+struct FeedbackSurveyData: Equatable {
 
-    var configuration: CustomerCenterConfigData.HelpPath.FeedbackSurvey
-    var onOptionSelected: (() -> Void)
+    let productIdentifier: String?
+    let configuration: CustomerCenterConfigData.HelpPath.FeedbackSurvey
+    let path: CustomerCenterConfigData.HelpPath
+    let onOptionSelected: (() -> Void)
 
-    init(configuration: CustomerCenterConfigData.HelpPath.FeedbackSurvey,
-         onOptionSelected: @escaping (() -> Void)) {
+    init(
+        productIdentifier: String?,
+        configuration: CustomerCenterConfigData.HelpPath.FeedbackSurvey,
+        path: CustomerCenterConfigData.HelpPath,
+        onOptionSelected: @escaping (() -> Void
+        )
+    ) {
+        self.productIdentifier = productIdentifier
         self.configuration = configuration
+        self.path = path
         self.onOptionSelected = onOptionSelected
     }
 
+    static func == (lhs: FeedbackSurveyData, rhs: FeedbackSurveyData) -> Bool {
+        return lhs.configuration == rhs.configuration &&
+        lhs.path == rhs.path &&
+        lhs.productIdentifier == rhs.productIdentifier
+    }
 }
 
 #endif

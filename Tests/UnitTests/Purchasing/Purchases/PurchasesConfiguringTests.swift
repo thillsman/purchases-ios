@@ -522,7 +522,8 @@ class PurchasesConfiguringTests: BasePurchasesTests {
         expect(
             Self.create(
                 purchasesAreCompletedBy: .revenueCat,
-                dangerousSettings: .init(customEntitlementComputation: true)
+                dangerousSettings: .init(customEntitlementComputation: true),
+                appUserID: "MockUserID"
             ).offlineCustomerInfoEnabled
         ) == false
     }
@@ -554,14 +555,29 @@ class PurchasesConfiguringTests: BasePurchasesTests {
         #endif
     }
 
+    func testNoCustomerInfoFetchInUIPreviewModeOnDidBecomeActive() {
+        self.systemInfo = MockSystemInfo(finishTransactions: true,
+                                         uiPreviewMode: true,
+                                         storeKitVersion: self.storeKitVersion,
+                                         clock: self.clock)
+        self.setupPurchases()
+
+        self.deviceCache.stubbedIsCustomerInfoCacheStale = true
+
+        self.notificationCenter.fireNotifications()
+        expect(self.backend.getCustomerInfoCallCount).toAlways(equal(0))
+    }
+
   private static func create(
       purchasesAreCompletedBy: PurchasesAreCompletedBy,
-      dangerousSettings: DangerousSettings = .init()
+      dangerousSettings: DangerousSettings = .init(),
+      appUserID: String? = nil
   ) -> Purchases {
         return Purchases.configure(
             with: .init(withAPIKey: "")
                 .with(purchasesAreCompletedBy: purchasesAreCompletedBy, storeKitVersion: .storeKit1)
                 .with(dangerousSettings: dangerousSettings)
+                .with(appUserID: appUserID)
         )
     }
 

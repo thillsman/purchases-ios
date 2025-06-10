@@ -13,6 +13,9 @@
 
 import RevenueCat
 
+// swiftlint:disable force_unwrapping type_body_length
+import Foundation
+
 class CustomerInfoFixtures {
 
     private init() {}
@@ -25,20 +28,32 @@ class CustomerInfoFixtures {
         init(id: String,
              store: String,
              purchaseDate: String,
-             expirationDate: String,
-             unsubscribeDetectedAt: String? = nil) {
+             expirationDate: String?,
+             priceAmount: Decimal = 4.99,
+             currency: String = "USD",
+             unsubscribeDetectedAt: String? = nil,
+             periodType: PeriodType = .normal) {
             self.id = id
             self.json = """
             {
+                "auto_resume_date": null,
                 "billing_issues_detected_at": null,
-                "expires_date": "\(expirationDate)",
+                "expires_date": \(expirationDate != nil ? "\"\(expirationDate!)\"" : "null"),
                 "grace_period_expires_date": null,
                 "is_sandbox": true,
                 "original_purchase_date": "\(purchaseDate)",
-                "period_type": "intro",
+                "ownership_type": "PURCHASED",
+                "period_type": "\(periodType.stringValue)",
                 "purchase_date": "\(purchaseDate)",
+                "refunded_at": null,
                 "store": "\(store)",
-                "unsubscribe_detected_at": \(unsubscribeDetectedAt != nil ? "\"\(unsubscribeDetectedAt!)\"" : "null")
+                "store_transaction_id": "0",
+                "unsubscribe_detected_at": \(unsubscribeDetectedAt != nil ? "\"\(unsubscribeDetectedAt!)\"" : "null"),
+                "display_name": "Weekly Scratched Sofa",
+                "price": {
+                  "amount": \(periodType == .trial ? 0 : priceAmount),
+                  "currency": \"\(currency)\"
+                }
             }
             """
         }
@@ -50,11 +65,12 @@ class CustomerInfoFixtures {
         let id: String
         let json: String
 
-        init(entitlementId: String, productId: String, purchaseDate: String, expirationDate: String) {
+        init(entitlementId: String, productId: String, purchaseDate: String, expirationDate: String? = nil) {
             self.id = entitlementId
             self.json = """
             {
-                "expires_date": "\(expirationDate)",
+                "expires_date": \(expirationDate != nil ? "\"\(expirationDate!)\"" : "null"),
+                "grace_period_expires_date": null,
                 "product_identifier": "\(productId)",
                 "purchase_date": "\(purchaseDate)"
             }
@@ -63,7 +79,32 @@ class CustomerInfoFixtures {
 
     }
 
-    static func customerInfo(subscriptions: [Subscription], entitlements: [Entitlement]) -> CustomerInfo {
+    class NonSubscriptionTransaction {
+        let productId: String
+        let id: String
+        let json: String
+
+        init(productId: String = "onetime", id: String, store: String, purchaseDate: String) {
+            self.productId = productId
+            self.id = id
+            self.json = """
+            {
+                "id": "\(id)",
+                "is_sandbox": true,
+                "original_purchase_date": "\(purchaseDate)",
+                "purchase_date": "\(purchaseDate)",
+                "store": "\(store)",
+                "store_transaction_id": "123"
+            }
+            """
+        }
+    }
+
+    static func customerInfo(
+        subscriptions: [Subscription],
+        entitlements: [Entitlement],
+        nonSubscriptions: [NonSubscriptionTransaction] = []
+    ) -> CustomerInfo {
         let subscriptionsJson = subscriptions.map { subscription in
             """
             "\(subscription.id)": \(subscription.json)
@@ -73,6 +114,15 @@ class CustomerInfoFixtures {
         let entitlementsJson = entitlements.map { entitlement in
             """
             "\(entitlement.id)": \(entitlement.json)
+            """
+        }.joined(separator: ",\n")
+
+        let nonSubscriptionsByProduct = Dictionary(grouping: nonSubscriptions, by: { $0.productId })
+        let nonSubscriptionsJson = nonSubscriptionsByProduct.map { productId, purchases in
+            """
+            "\(productId)": [
+                \(purchases.map { $0.json }.joined(separator: ",\n"))
+            ]
             """
         }.joined(separator: ",\n")
 
@@ -87,6 +137,7 @@ class CustomerInfoFixtures {
                 "last_seen": "2022-03-08T17:42:58Z",
                 "management_url": "https://apps.apple.com/account/subscriptions",
                 "non_subscriptions": {
+                    \(nonSubscriptionsJson)
                 },
                 "original_app_user_id": "$RCAnonymousID:5b6fdbac3a0c4f879e43d269ecdf9ba1",
                 "original_application_version": "1.0",
@@ -109,8 +160,9 @@ class CustomerInfoFixtures {
         store: String,
         productId: String = "com.revenuecat.product",
         purchaseDate: String = "2022-04-12T00:03:28Z",
-        expirationDate: String = "2062-04-12T00:03:35Z",
-        unsubscribeDetectedAt: String? = nil
+        expirationDate: String? = "2062-04-12T00:03:35Z",
+        unsubscribeDetectedAt: String? = nil,
+        periodType: PeriodType = .normal
     ) -> CustomerInfo {
         return customerInfo(
             subscriptions: [
@@ -119,7 +171,8 @@ class CustomerInfoFixtures {
                     store: store,
                     purchaseDate: purchaseDate,
                     expirationDate: expirationDate,
-                    unsubscribeDetectedAt: unsubscribeDetectedAt
+                    unsubscribeDetectedAt: unsubscribeDetectedAt,
+                    periodType: periodType
                 )
             ],
             entitlements: [
@@ -142,6 +195,14 @@ class CustomerInfoFixtures {
             store: "app_store",
             purchaseDate: "1999-04-12T00:03:28Z",
             expirationDate: "2000-04-12T00:03:35Z"
+        )
+    }()
+
+    static let customerInfoWithLifetimeAppSubscrition: CustomerInfo = {
+        makeCustomerInfo(
+            store: "app_store",
+            purchaseDate: "1999-04-12T00:03:28Z",
+            expirationDate: nil
         )
     }()
 
@@ -186,20 +247,47 @@ class CustomerInfoFixtures {
         )
     }()
 
+    static let customerInfoWithExpiredStripeSubscriptions: CustomerInfo = {
+        makeCustomerInfo(
+            store: "stripe",
+            purchaseDate: "1999-04-12T00:03:28Z",
+            expirationDate: "2000-04-12T00:03:35Z"
+        )
+    }()
+
     static let customerInfoWithRCBillingSubscriptions: CustomerInfo = {
         makeCustomerInfo(store: "rc_billing")
     }()
 
     static let customerInfoWithNonRenewingRCBillingSubscriptions: CustomerInfo = {
         makeCustomerInfo(
-            store: "stripe",
+            store: "rc_billing",
             unsubscribeDetectedAt: "2023-04-12T00:03:35Z"
         )
     }()
 
-    static let customerInfoWithExpiredStripeSubscriptions: CustomerInfo = {
+    static let customerInfoWithExpiredRCBillingSubscriptions: CustomerInfo = {
         makeCustomerInfo(
-            store: "stripe",
+            store: "rc_billing",
+            purchaseDate: "1999-04-12T00:03:28Z",
+            expirationDate: "2000-04-12T00:03:35Z"
+        )
+    }()
+
+    static let customerInfoWithPaddleSubscriptions: CustomerInfo = {
+        makeCustomerInfo(store: "paddle")
+    }()
+
+    static let customerInfoWithNonRenewingPaddleSubscriptions: CustomerInfo = {
+        makeCustomerInfo(
+            store: "paddle",
+            unsubscribeDetectedAt: "2023-04-12T00:03:35Z"
+        )
+    }()
+
+    static let customerInfoWithExpiredPaddleSubscriptions: CustomerInfo = {
+        makeCustomerInfo(
+            store: "paddle",
             purchaseDate: "1999-04-12T00:03:28Z",
             expirationDate: "2000-04-12T00:03:35Z"
         )

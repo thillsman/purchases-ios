@@ -15,7 +15,7 @@ import Foundation
 
 extension EventsRequest {
 
-    struct PaywallEvent: FeatureEvent {
+    struct PaywallEvent {
 
         let id: String?
         let version: Int
@@ -45,12 +45,13 @@ extension EventsRequest.PaywallEvent {
 
     @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
     init?(storedEvent: StoredEvent) {
-        guard let eventData = storedEvent.encodedEvent.value as? [String: Any] else {
-            Logger.error(Strings.paywalls.event_cannot_deserialize)
+        guard let jsonData = storedEvent.encodedEvent.data(using: .utf8) else {
+            Logger.error(Strings.paywalls.event_cannot_get_encoded_event)
             return nil
         }
+
         do {
-            let paywallEvent: PaywallEvent = try JSONDecoder.default.decode(dictionary: eventData)
+            let paywallEvent = try JSONDecoder.default.decode(PaywallEvent.self, from: jsonData)
             let creationData = paywallEvent.creationData
             let data = paywallEvent.data
 
@@ -68,6 +69,7 @@ extension EventsRequest.PaywallEvent {
                 localeIdentifier: data.localeIdentifier
             )
         } catch {
+            Logger.error(Strings.paywalls.event_cannot_deserialize(error))
             return nil
         }
     }
@@ -95,6 +97,7 @@ private extension PaywallEvent {
 extension EventsRequest.PaywallEvent.EventType: Encodable {}
 extension EventsRequest.PaywallEvent: Encodable {
 
+    /// When sending this to the backend `JSONEncoder.KeyEncodingStrategy.convertToSnakeCase` is used
     private enum CodingKeys: String, CodingKey {
 
         case id

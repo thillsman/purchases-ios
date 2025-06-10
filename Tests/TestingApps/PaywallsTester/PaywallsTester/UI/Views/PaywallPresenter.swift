@@ -7,46 +7,82 @@
 
 import SwiftUI
 import RevenueCat
+#if DEBUG
+@testable import RevenueCatUI
+#else
 import RevenueCatUI
+#endif
+
 
 struct PaywallPresenter: View {
 
     var offering: Offering
-    var mode: PaywallViewMode
+    var mode: PaywallTesterViewMode
+
+    /// Ignored in release builds.
     var introEligility: IntroEligibilityStatus
     var displayCloseButton: Bool = Configuration.defaultDisplayCloseButton
 
+    #if DEBUG
+    var introEligibilityChecker: TrialOrIntroEligibilityChecker {
+        .producing(eligibility: introEligility)
+    }
+    #endif
+
+
     var body: some View {
         switch self.mode {
-        case .fullScreen:
-
-            let handler = PurchaseHandler.default()
-
-            let configuration = PaywallViewConfiguration(
-                offering: offering,
-                fonts: DefaultPaywallFontProvider(),
-                displayCloseButton: displayCloseButton,
-                introEligibility: .producing(eligibility: introEligility),
-                purchaseHandler: handler
-            )
-
-            PaywallView(configuration: configuration)
+        case .fullScreen, .sheet:
+            PaywallView(offering: offering)
+                .onPurchaseStarted({ package in
+                    print("Paywall Handler - onPurchaseStarted")
+                })
+                .onPurchaseCompleted({ customerInfo in
+                    print("Paywall Handler - onPurchaseCompleted")
+                })
+                .onPurchaseFailure({ error in
+                    print("Paywall Handler - onPurchaseFailure")
+                })
+                .onPurchaseCancelled({
+                    print("Paywall Handler - onPurchaseCancelled")
+                })
+                .onRestoreStarted({
+                    print("Paywall Handler - onRestoreStarted")
+                })
+                .onRestoreCompleted({ customerInfo in
+                    print("Paywall Handler - onRestoreCompleted")
+                })
+                .onRestoreFailure({ error in
+                    print("Paywall Handler - onRestoreFailure")
+                })
 
 #if !os(watchOS)
+#if DEBUG
         case .footer:
             CustomPaywallContent()
-                .paywallFooter(offering: self.offering,
-                               customerInfo: nil,
-                               introEligibility: .producing(eligibility: introEligility),
-                               purchaseHandler: .default())
+                .originalTemplatePaywallFooter(offering: self.offering,
+                                               customerInfo: nil,
+                                               introEligibility: introEligibilityChecker,
+                                               purchaseHandler: .default())
 
         case .condensedFooter:
             CustomPaywallContent()
-                .paywallFooter(offering: self.offering,
-                               customerInfo: nil,
-                               condensed: true,
-                               introEligibility: .producing(eligibility: introEligility),
-                                                            purchaseHandler: .default())
+                .originalTemplatePaywallFooter(offering: self.offering,
+                                               customerInfo: nil,
+                                               condensed: true,
+                                               introEligibility: introEligibilityChecker,
+                                               purchaseHandler: .default())
+#else
+        case .footer:
+            CustomPaywallContent()
+                .originalTemplatePaywallFooter(offering: self.offering)
+
+        case .condensedFooter:
+            CustomPaywallContent()
+                .originalTemplatePaywallFooter(offering: self.offering,
+                                               condensed: true)
+
+#endif
 #endif
         }
     }

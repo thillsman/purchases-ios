@@ -16,7 +16,7 @@ import Foundation
 protocol PaywallEventsManagerType {
 
     @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
-    func track(paywallEvent: PaywallEvent) async
+    func track(featureEvent: FeatureEvent) async
 
     /// - Throws: if posting events fails
     /// - Returns: the number of events posted
@@ -31,23 +31,28 @@ actor PaywallEventsManager: PaywallEventsManagerType {
     private let internalAPI: InternalAPI
     private let userProvider: CurrentUserProvider
     private let store: PaywallEventStoreType
+    private var appSessionID: UUID
 
     private var flushInProgress = false
 
     init(
         internalAPI: InternalAPI,
         userProvider: CurrentUserProvider,
-        store: PaywallEventStoreType
+        store: PaywallEventStoreType,
+        appSessionID: UUID = SystemInfo.appSessionID
     ) {
         self.internalAPI = internalAPI
         self.userProvider = userProvider
         self.store = store
+        self.appSessionID = appSessionID
     }
 
-    func track(paywallEvent: PaywallEvent) async {
-        guard let event: StoredEvent = .init(event: AnyEncodable(paywallEvent),
+    func track(featureEvent: FeatureEvent) async {
+        guard let event: StoredEvent = .init(event: featureEvent,
                                              userID: self.userProvider.currentAppUserID,
-                                             feature: .paywalls) else {
+                                             feature: featureEvent.feature,
+                                             appSessionID: self.appSessionID,
+                                             eventDiscriminator: featureEvent.eventDiscriminator) else {
             Logger.error(Strings.paywalls.event_cannot_serialize)
             return
         }
@@ -73,6 +78,7 @@ actor PaywallEventsManager: PaywallEventsManagerType {
 
         do {
             try await self.internalAPI.postPaywallEvents(events: events)
+            Logger.debug(Strings.analytics.flush_events_success)
 
             await self.store.clear(count)
 

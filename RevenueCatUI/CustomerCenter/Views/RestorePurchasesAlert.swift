@@ -23,117 +23,305 @@ import SwiftUI
 @available(macOS, unavailable)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
-struct RestorePurchasesAlert: ViewModifier {
+struct RestorePurchasesAlert: View {
 
-    @Binding
-    var isPresented: Bool
     @Environment(\.openURL)
     var openURL
 
-    @EnvironmentObject private var customerCenterViewModel: CustomerCenterViewModel
+    @Binding
+    private var isPresented: Bool
 
-    @State
-    private var alertType: AlertType = .restorePurchases
-    @Environment(\.dismiss)
-    private var dismiss
+    @ObservedObject
+    private var customerCenterViewModel: CustomerCenterViewModel
+
+    @StateObject
+    private var viewModel: RestorePurchasesAlertViewModel
+
     @Environment(\.localization)
     private var localization
+
     @Environment(\.supportInformation)
     private var supportInformation: CustomerCenterConfigData.Support?
 
+    init(
+        isPresented: Binding<Bool>,
+        actionWrapper: CustomerCenterActionWrapper,
+        customerCenterViewModel: CustomerCenterViewModel
+    ) {
+        self.init(
+            isPresented: isPresented,
+            viewModel: RestorePurchasesAlertViewModel(actionWrapper: actionWrapper),
+            customerCenterViewModel: customerCenterViewModel
+        )
+    }
+
+    fileprivate init(
+        isPresented: Binding<Bool>,
+        viewModel: RestorePurchasesAlertViewModel,
+        customerCenterViewModel: CustomerCenterViewModel
+    ) {
+        self._isPresented = isPresented
+        self._viewModel = StateObject(wrappedValue: viewModel)
+        self.customerCenterViewModel = customerCenterViewModel
+    }
+
     private var supportURL: URL? {
         guard let supportInformation = self.supportInformation else { return nil }
-        let subject = self.localization.commonLocalizedString(for: .defaultSubject)
-        let body = supportInformation.calculateBody(self.localization)
+        let subject = self.localization[.defaultSubject]
+        let body = supportInformation.calculateBody(self.localization,
+                                                    purchasesProvider: customerCenterViewModel.purchasesProvider)
         return URLUtilities.createMailURLIfPossible(email: supportInformation.email,
                                                     subject: subject,
                                                     body: body)
     }
 
-    enum AlertType: Identifiable {
-        case purchasesRecovered, purchasesNotFound, restorePurchases
-        var id: Self { self }
-    }
-
-    func body(content: Content) -> some View {
-        content
-            .alert(isPresented: $isPresented) {
-                switch self.alertType {
-                case .restorePurchases:
-                    return Alert(
-                        title: Text(localization.commonLocalizedString(for: .restorePurchases)),
-                        message: Text(localization.commonLocalizedString(for: .goingToCheckPurchases)),
-                        primaryButton: .default(Text(localization.commonLocalizedString(for: .checkPastPurchases)),
-                                                action: {
-                                                    Task {
-                                                        let alertType =
-                                                        await self.customerCenterViewModel.performRestore()
-                                                        self.setAlertType(alertType)
-                                                    }
-                                                }),
-                        secondaryButton: .cancel(Text(localization.commonLocalizedString(for: .cancel)))
-                    )
-
-                case .purchasesRecovered:
-                    return Alert(title: Text(localization.commonLocalizedString(for: .purchasesRecovered)),
-                                 message: Text(localization.commonLocalizedString(for: .purchasesRecoveredExplanation)),
-                                 dismissButton: .cancel(Text(localization.commonLocalizedString(for: .dismiss))) {
-                        dismiss()
-                    })
-
-                case .purchasesNotFound:
-                    let message = Text(localization.commonLocalizedString(for: .purchasesNotRecovered))
-                    if let url = supportURL {
-                        return Alert(title: Text(""),
-                                     message: message,
-                                     primaryButton: .default(
-                                        Text(localization.commonLocalizedString(for: .contactSupport))
-                                     ) {
-                                         Task {
-                                             openURL(url)
-                                         }
-                                     },
-                                     secondaryButton: .cancel(Text(localization.commonLocalizedString(for: .dismiss))) {
-                                         dismiss()
-                                     })
-                    } else {
-                        return Alert(title: Text(""),
-                                     message: message,
-                                     dismissButton: .default(Text(localization.commonLocalizedString(for: .dismiss))) {
-                                         dismiss()
-                                     })
-                    }
-                }
+    var body: some View {
+        AlertOrConfirmationDialog(
+            isPresented: $isPresented,
+            alertType: self.viewModel.alertType,
+            title: alertTitle(),
+            message: alertMessage(),
+            actions: alertActions()
+        )
+        .task(id: isPresented) {
+            if isPresented {
+                await viewModel.performRestore(purchasesProvider: customerCenterViewModel.purchasesProvider)
             }
-    }
-
-}
-
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
-@available(macOS, unavailable)
-@available(tvOS, unavailable)
-@available(watchOS, unavailable)
-private extension RestorePurchasesAlert {
-
-    func setAlertType(_ newType: AlertType) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.alertType = newType
-            self.isPresented = true
         }
     }
 
+    private func alertActions() -> [AlertOrConfirmationDialog.AlertAction] {
+        switch self.viewModel.alertType {
+        case .loading:
+            return []
+        case .purchasesRecovered:
+            return [
+                AlertOrConfirmationDialog.AlertAction(
+                    title: localization[.done],
+                    role: .cancel,
+                    action: dismissAlert
+                )
+            ]
+        case .purchasesNotFound:
+            var actions: [AlertOrConfirmationDialog.AlertAction] = []
+
+            if let onUpdateAppClick = customerCenterViewModel.onUpdateAppClick,
+               customerCenterViewModel.shouldShowAppUpdateWarnings {
+                actions.append(
+                    AlertOrConfirmationDialog.AlertAction(
+                        title: localization[.updateWarningUpdate],
+                        role: nil,
+                        action: onUpdateAppClick
+                    )
+                )
+            }
+
+            if let url = supportInformation?.supportURL(
+                localization: localization,
+                purchasesProvider: customerCenterViewModel.purchasesProvider
+            ), URLUtilities.canOpenURL(url) {
+                actions.append(
+                    AlertOrConfirmationDialog.AlertAction(
+                        title: localization[.contactSupport],
+                        role: nil,
+                        action: { Task { openURL(url) } }
+                    )
+                )
+            }
+
+            actions.append(
+                AlertOrConfirmationDialog.AlertAction(
+                    title: localization[.dismiss],
+                    role: .cancel,
+                    action: dismissAlert
+                )
+            )
+
+            return actions
+        }
+    }
+
+    // MARK: - Strings
+    private func alertTitle() -> String {
+        switch self.viewModel.alertType {
+        case .loading:
+            return localization[.purchasesRestoring]
+        case .purchasesRecovered:
+            return localization[.purchasesRecovered]
+        case .purchasesNotFound:
+            return localization[.purchasesNotFound]
+        }
+    }
+
+    private func alertMessage() -> String? {
+        switch self.viewModel.alertType {
+        case .loading:
+            return nil
+        case .purchasesRecovered:
+            return localization[.purchasesRecoveredExplanation]
+        case .purchasesNotFound:
+            var message = localization[.purchasesNotRecoveredExplanation]
+            if customerCenterViewModel.shouldShowAppUpdateWarnings {
+                message += "\n\n" + localization[.updateWarningDescription]
+            }
+            return message
+        }
+    }
+
+    private func dismissAlert() {
+        self.customerCenterViewModel.onDismissRestorePurchasesAlert()
+        self.isPresented = false
+        self.viewModel.alertType = .loading
+    }
 }
 
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 @available(macOS, unavailable)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
-extension View {
+private struct AlertOrConfirmationDialog: View {
 
-    func restorePurchasesAlert(isPresented: Binding<Bool>) -> some View {
-        self.modifier(RestorePurchasesAlert(isPresented: isPresented))
+    @Binding var isPresented: Bool
+    let alertType: RestorePurchasesAlertViewModel.AlertType
+    let title: String
+    let message: String?
+    let actions: [AlertAction]
+
+    struct AlertAction: Identifiable {
+        let id = UUID()
+        let title: String
+        let role: ButtonRole?
+        let action: () -> Void
+    }
+
+    var body: some View {
+        ZStack {
+            if isPresented {
+                Color.black
+                    .opacity(alertType == .loading ? 0.15 : 0)
+                    .animation(.easeInOut, value: alertType)
+                    .ignoresSafeArea()
+
+                if alertType == .loading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text(title)
+                            .font(.headline)
+                    }
+                    .padding(24)
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                } else {
+                    if actions.count < 3 {
+                        Color.clear
+                            .alert(
+                                title,
+                                isPresented: $isPresented,
+                                actions: {
+                                    ForEach(actions) { action in
+                                        Button(role: action.role) {
+                                            action.action()
+                                        } label: {
+                                            Text(action.title)
+                                        }
+                                    }
+                                },
+                                message: {
+                                    if let message {
+                                        Text(message)
+                                    }
+                                }
+                            )
+                    } else {
+                        Color.clear
+                            .confirmationDialog(
+                                title,
+                                isPresented: $isPresented,
+                                actions: {
+                                    ForEach(actions) { action in
+                                        Button(role: action.role) {
+                                            action.action()
+                                        } label: {
+                                            Text(action.title)
+                                        }
+                                    }
+                                },
+                                message: {
+                                    if let message {
+                                        Text(message)
+                                    }
+                                }
+                            )
+                    }
+                }
+            }
+        }
+    }
+}
+
+#if DEBUG
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+@available(macOS, unavailable)
+@available(tvOS, unavailable)
+@available(watchOS, unavailable)
+private class MockRestorePurchasesAlertViewModel: RestorePurchasesAlertViewModel {
+
+    init(alertType: AlertType) {
+        super.init(actionWrapper: CustomerCenterActionWrapper())
+        self.alertType = alertType
+    }
+
+    override func performRestore(purchasesProvider: CustomerCenterPurchasesType) async {
     }
 
 }
+
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+@available(macOS, unavailable)
+@available(tvOS, unavailable)
+@available(watchOS, unavailable)
+struct RestorePurchasesAlert_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            PreviewContainer(alertType: .loading)
+                .previewDisplayName("Loading Forever")
+
+            PreviewContainer(alertType: .purchasesRecovered)
+                .previewDisplayName("Purchases Recovered")
+
+            PreviewContainer(alertType: .purchasesNotFound)
+                .previewDisplayName("Purchases Not Found")
+        }
+    }
+}
+
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+@available(macOS, unavailable)
+@available(tvOS, unavailable)
+@available(watchOS, unavailable)
+private struct PreviewContainer: View {
+
+    let alertType: RestorePurchasesAlertViewModel.AlertType
+    @State private var isPresented = true
+
+    var body: some View {
+        let viewModelApple = CustomerCenterViewModel(
+            activeSubscriptionPurchases: [.subscriptionInformationMonthlyRenewing],
+            activeNonSubscriptionPurchases: [],
+            configuration: CustomerCenterConfigData.default
+        )
+
+        RestorePurchasesAlert(
+            isPresented: $isPresented,
+            viewModel: MockRestorePurchasesAlertViewModel(alertType: alertType),
+            customerCenterViewModel: viewModelApple
+        )
+        .environment(\.localization, CustomerCenterConfigData.default.localization)
+        .emergeRenderingMode(.window)
+    }
+
+}
+#endif
 
 #endif

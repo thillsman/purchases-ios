@@ -45,6 +45,13 @@ class BasePurchasesOrchestratorTests: StoreKitConfigTestCase {
     var mockWinBackOfferEligibilityCalculator: MockWinBackOfferEligibilityCalculator!
     var mockTransactionFetcher: MockStoreKit2TransactionFetcher!
     private var paywallEventsManager: PaywallEventsManagerType!
+    var webPurchaseRedemptionHelper: MockWebPurchaseRedemptionHelper!
+    var mockDiagnosticsTracker: DiagnosticsTrackerType!
+
+    static let eventTimestamp1: Date = .init(timeIntervalSince1970: 1694029328)
+    static let eventTimestamp2: Date = .init(timeIntervalSince1970: 1694022321)
+    var mockDateProvider = MockDateProvider(stubbedNow: eventTimestamp1,
+                                            subsequentNows: eventTimestamp2)
 
     @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
     var mockPaywallEventsManager: MockPaywallEventsManager {
@@ -77,8 +84,10 @@ class BasePurchasesOrchestratorTests: StoreKitConfigTestCase {
         self.offerings = try XCTUnwrap(self.backend.offerings as? MockOfferingsAPI)
         if #available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *) {
             self.paywallEventsManager = MockPaywallEventsManager()
+            self.mockDiagnosticsTracker = MockDiagnosticsTracker()
         } else {
             self.paywallEventsManager = nil
+            self.mockDiagnosticsTracker = nil
         }
 
         self.mockOfferingsManager = MockOfferingsManager(deviceCache: self.deviceCache,
@@ -86,7 +95,8 @@ class BasePurchasesOrchestratorTests: StoreKitConfigTestCase {
                                                          systemInfo: self.systemInfo,
                                                          backend: self.backend,
                                                          offeringsFactory: OfferingsFactory(),
-                                                         productsManager: self.productsManager)
+                                                         productsManager: self.productsManager,
+                                                         diagnosticsTracker: self.mockDiagnosticsTracker)
         self.setUpStoreKit1Wrapper()
 
         self.customerInfoManager = MockCustomerInfoManager(
@@ -118,6 +128,9 @@ class BasePurchasesOrchestratorTests: StoreKitConfigTestCase {
         self.mockWinBackOfferEligibilityCalculator = MockWinBackOfferEligibilityCalculator()
         self.mockTransactionFetcher = MockStoreKit2TransactionFetcher()
         self.notificationCenter = MockNotificationCenter()
+        let identityManager = MockIdentityManager(mockAppUserID: "test-user-id",
+                                                  mockDeviceCache: self.deviceCache)
+        self.webPurchaseRedemptionHelper = MockWebPurchaseRedemptionHelper()
         self.setUpStoreKit1Wrapper()
         self.setUpAttribution()
         self.setUpOrchestrator()
@@ -160,7 +173,8 @@ class BasePurchasesOrchestratorTests: StoreKitConfigTestCase {
                                                   currentUserProvider: self.currentUserProvider,
                                                   backend: self.backend,
                                                   attributionFetcher: self.attributionFetcher,
-                                                  subscriberAttributesManager: self.subscriberAttributesManager)
+                                                  subscriberAttributesManager: self.subscriberAttributesManager,
+                                                  systemInfo: self.systemInfo)
 
         self.attribution = Attribution(subscriberAttributesManager: self.subscriberAttributesManager,
                                        currentUserProvider: MockCurrentUserProvider(mockAppUserID: Self.mockUserID),
@@ -188,8 +202,10 @@ class BasePurchasesOrchestratorTests: StoreKitConfigTestCase {
             manageSubscriptionsHelper: self.mockManageSubsHelper,
             beginRefundRequestHelper: self.mockBeginRefundRequestHelper,
             storeMessagesHelper: self.mockStoreMessagesHelper,
+            diagnosticsTracker: self.mockDiagnosticsTracker,
             winBackOfferEligibilityCalculator: self.mockWinBackOfferEligibilityCalculator,
-            paywallEventsManager: self.paywallEventsManager)
+            paywallEventsManager: self.paywallEventsManager,
+            webPurchaseRedemptionHelper: self.webPurchaseRedemptionHelper)
         self.storeKit1Wrapper.delegate = self.orchestrator
     }
 
@@ -226,7 +242,9 @@ class BasePurchasesOrchestratorTests: StoreKitConfigTestCase {
             diagnosticsSynchronizer: diagnosticsSynchronizer,
             diagnosticsTracker: diagnosticsTracker,
             winBackOfferEligibilityCalculator: self.mockWinBackOfferEligibilityCalculator,
-            paywallEventsManager: self.paywallEventsManager
+            paywallEventsManager: self.paywallEventsManager,
+            webPurchaseRedemptionHelper: self.webPurchaseRedemptionHelper,
+            dateProvider: self.mockDateProvider
         )
         self.storeKit1Wrapper.delegate = self.orchestrator
     }

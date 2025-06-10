@@ -130,6 +130,246 @@ platform :ios do
     end
   end
 
+  desc "Updates paywall-preview-resources submodule and creates/updates PR"
+  lane :update_paywall_preview_resources_submodule do |options|
+    branch_name = "pw2-update-paywall-preview-resources-submodule"
+    submodule_dir = "../upstream/paywall-preview-resources"
+
+    # Ensure we're starting from an up-to-date main.
+    sh("git", "fetch", "origin")
+
+    create_or_checkout_branch(branch_name: branch_name)
+
+    Dir.chdir(submodule_dir) do
+      sh("git", "fetch")
+      sh("git", "checkout", "main")
+      sh("git", "pull")
+    end
+
+    commit_push_and_create_pr_if_necessary(
+      repo: repo_name,
+      branch_name: branch_name,
+      commit_message: "[Automated] Updates paywall-preview-resources submodule.",
+      title: "[AUTOMATIC][Paywalls V2] Updates paywall-preview-resources submodule",
+      body: "This is an automatic update of the paywall-preview-resources submodule.",
+      labels: ["pr:other"],
+      team_reviewers: ["coresdk", "monetization"]
+    )
+  end
+
+  desc "Records Paywall template screenshots and pushes them to the repository at target_repository_path"
+  lane :record_and_push_paywall_template_screenshots do |options|
+    UI.user_error!("Please provide the target_repository_path, and make sure it is cloned.") unless options[:target_repository_path]
+
+    target_repository_path = Dir.chdir("..") do
+      File.expand_path(options[:target_repository_path])
+    end
+    target_repository_branch = "update-ios-template-screenshots"
+    target_repository_name = nil
+
+    # Update the target repository and create a new branch
+    Dir.chdir(target_repository_path) do
+      UI.user_error!("Target repository (#{target_repository_path}) is not clean.") unless sh("git", "status", "--porcelain").empty?
+      sh("git", "fetch")
+      sh("git", "checkout", "main")
+      sh("git", "pull")
+      create_or_checkout_branch(branch_name: target_repository_branch)
+      target_repository_name = sh("basename -s .git \"$(git config --get remote.origin.url)\"").strip
+    end
+    UI.user_error!("Failed to determine target repository name") if target_repository_name.nil? || target_repository_name.empty?
+
+    # Loop over all PNG files in the tmp_dir, parse the offering ID from the file names, and move them into the target repository
+    output_dir = record_paywall_screenshots
+
+    UI.message("Output directory: #{output_dir}")
+    
+    # Process the screenshots from the output directory
+    Dir.glob("#{output_dir}/images/*.png").each do |file_path|
+      offering_id = File.basename(file_path, File.extname(file_path))
+      target_dir = "#{target_repository_path}/screenshots/templates/#{offering_id}"
+
+      target_path = "#{target_dir}/ios.png"
+
+      UI.message("Moving #{file_path} to #{target_path}")
+
+      FileUtils.mkdir_p(target_dir)
+      FileUtils.cp(file_path, target_path)
+    end
+
+    # Commit, push, and create a PR in the target repository
+    Dir.chdir(target_repository_path) do
+      commit_push_and_create_pr_if_necessary(
+        repo: target_repository_name,
+        branch_name: target_repository_branch,
+        commit_message: "[Automated] Updates iOS template screenshots.",
+        title: "[AUTOMATIC] Updates iOS template screenshots",
+        body: "This is an automatic update of the iOS template screenshots.",
+        team_reviewers: ["coresdk", "monetization", "bab-s"]
+      )
+    end
+  end
+
+  private_lane :create_or_checkout_branch do |options|
+    branch_name = options[:branch_name] || UI.user_error!("No branch name provided")
+
+    # Check if branch exists locally or remotely
+    branch_exists_locally = sh("git", "branch", "--list", branch_name).length > 0
+    branch_exists_remotely = sh("git", "ls-remote", "--heads", "origin", branch_name).length > 0
+
+    if branch_exists_locally || branch_exists_remotely
+      UI.message("Branch #{branch_name} already exists, checking it out")
+      sh("git", "checkout", branch_name)
+      if branch_exists_remotely
+        sh("git", "pull", "origin", branch_name)
+      end
+    else
+      UI.message("Creating new branch #{branch_name}")
+      sh("git", "checkout", "-b", branch_name)
+    end
+  end
+
+  private_lane :commit_push_and_create_pr_if_necessary do |options|
+    branch_name = options[:branch_name] || UI.user_error!("No branch_name provided")
+    commit_message = options[:commit_message] || UI.user_error!("No commit_message provided")
+    title = options[:title] || commit_message
+    body = options[:body] || commit_message
+    repo = options[:repo] || repo_name
+    labels = options[:labels] || []
+    team_reviewers = options[:team_reviewers] || []
+    
+    has_changes = !sh("git", "status", "--porcelain").empty?
+    if has_changes
+      commit_and_push(
+        branch_name: branch_name,
+        commit_message: commit_message
+      )
+
+      create_pr_if_necessary(
+        repo: repo,
+        branch_name: branch_name,
+        title: title,
+        body: body,
+        labels: labels,
+        team_reviewers: team_reviewers
+      )
+    else
+      UI.message("No changes detected. Skipping commit, push, and PR creation.")
+    end
+  end
+
+  private_lane :commit_and_push do |options|
+    branch_name = options[:branch_name] || UI.user_error!("No branch_name provided")
+    commit_message = options[:commit_message] || UI.user_error!("No commit_message provided")
+
+    # Check if there are any changes to commit
+    if sh("git", "status", "--porcelain").empty?
+      UI.message("No changes to commit")
+    else
+      # Commit changes
+      if File.basename(Dir.pwd) == "fastlane"
+        Dir.chdir("..") do
+          sh("git", "add", ".")
+          sh("git", "commit", "-m", commit_message)
+          sh("git", "push", "-u", "origin", branch_name)
+        end
+      else
+        sh("git", "add", ".")
+        sh("git", "commit", "-m", commit_message)
+        sh("git", "push", "-u", "origin", branch_name)
+      end
+    end
+  end
+
+  private_lane :create_pr_if_necessary do |options|
+    branch_name = options[:branch_name] || UI.user_error!("No branch_name provided")
+    title = options[:title] || UI.user_error!("No title provided")
+    body = options[:body] || UI.user_error!("No body provided")
+    repo = options[:repo] || repo_name
+    repo_with_owner = "RevenueCat/#{repo}"
+    base = options[:base] || "main"
+    labels = options[:labels] || []
+    team_reviewers = options[:team_reviewers] || []
+
+    existing_pr = github_api(
+      api_token: ENV["GITHUB_TOKEN"],
+      path: "/repos/#{repo_with_owner}/pulls?head=RevenueCat:#{branch_name}&state=open"
+    )
+
+    if existing_pr[:json].length == 0
+      pr_url = create_pull_request(
+        repo: repo_with_owner,
+        title: title,
+        body: body,
+        base: base,
+        head: branch_name,
+        api_token: ENV["GITHUB_TOKEN"],
+        labels: labels,
+        team_reviewers: team_reviewers
+      )
+      
+      if pr_url.nil?
+        UI.user_error!("Failed to create pull request.")
+      end
+    else
+      UI.message("PR already exists.")
+    end
+  end
+
+  desc "Records screenshots for paywalls"
+  lane :record_paywall_screenshots do |options|
+    output_dir = File.absolute_path("../fastlane/test_output/xctest/paywall-screenshots")
+    FileUtils.rm_rf(output_dir)
+    FileUtils.mkdir_p(output_dir)
+
+    device = ENV['SCAN_DEVICE'] || "iPhone 12 (15.2)"
+    result_bundle_path = "#{output_dir}/RevenueCatUITests.xcresult"
+
+    # Using xcodebuild because scan couldn't find RevenueCatUI scheme locally (even though shared)
+    # This is due to RevenueCatUI scheme belonging to purchases-ios and not an actual project
+    xcodebuild(
+      workspace: '.',
+      scheme: 'RevenueCatUI',
+      destination: "platform=iOS Simulator,name=#{device}",
+      sdk: 'iphonesimulator',
+      test: true,
+      xcargs: "-testPlan Paywall-Screenshots -resultBundlePath #{result_bundle_path}"
+    )
+
+    image_output_dir = "#{output_dir}/images"
+    FileUtils.mkdir_p(image_output_dir)
+    extract_xcresult_images(
+      xcresult_path: result_bundle_path, 
+      output_dir: image_output_dir
+    )
+
+    output_dir
+  end
+
+  desc "Build the Paywalls Test app for Emerge Snapshots"
+  lane :build_paywalls_tester_for_emerge do |options|
+    scan(
+      workspace: "Tests/TestingApps/PaywallsTester/PaywallsTester.xcworkspace",
+      scheme: "PaywallsTester - Live Config",
+      build_for_testing: true,
+    )
+
+    pr_url = ENV["CIRCLE_PULL_REQUEST"]
+    branch_name = sh("git rev-parse --abbrev-ref HEAD").strip
+    pr_number = nil
+    # Try to parse the PR number from the pr_url variable first
+    if pr_url && pr_url.include?("/")
+      pr_number = pr_url.split("/").last
+    # Try to parse the PR number from the merge queue branch name. In this case,
+    # there's no CIRCLE_PULL_REQUEST environment variable.
+    elsif branch_name =~ /^gh-readonly-queue\/[^\/]+\/pr-([0-9]+)-[0-9a-f]+$/
+      pr_number = $1
+    end
+
+    emerge_args = {repo_name: "RevenueCat/purchases-ios"}
+    emerge_args[:pr_number] = pr_number if pr_number
+    emerge(emerge_args)
+  end
+
   desc "Runs all the iOS tests"
   lane :test_ios do |options|
     generate_snapshots = ENV["CIRCLECI_TESTS_GENERATE_SNAPSHOTS"] == "true"
@@ -357,12 +597,12 @@ platform :ios do
 
   desc "Release to CocoaPods"
   lane :push_revenuecat_pod do |options|
-    pod_push(path: "RevenueCat.podspec", synchronous: true)
+    pod_push_with_error_handling(path: "RevenueCat.podspec", synchronous: true)
   end
 
   desc "Release to CocoaPods"
   lane :push_revenuecatui_pod do |options|
-    pod_push(path: "RevenueCatUI.podspec", synchronous: true)
+    pod_push_with_error_handling(path: "RevenueCatUI.podspec", synchronous: true)
   end
 
   desc "Tag current branch with current version number"
@@ -619,17 +859,25 @@ platform :ios do
   desc "Run LoadShedder tests"
   lane :v3_loadshedder_integration_tests do |options|
     replace_api_key_integration_tests
-    scan(
-      project: "./Tests/v3LoadShedderIntegration/v3LoadShedderIntegration.xcodeproj",
-      scheme: "v3LoadShedderIntegration",
-      ensure_devices_found: true,
-      derived_data_path: "scan_derived_data",
-      output_types: 'junit',
-      output_style: 'raw',
-      result_bundle: true,
-      configuration: 'Debug',
-      output_directory: "fastlane/test_output/xctest/ios"
-    )
+    success = false
+    begin
+      scan(
+        project: "./Tests/v3LoadShedderIntegration/v3LoadShedderIntegration.xcodeproj",
+        scheme: "v3LoadShedderIntegration",
+        ensure_devices_found: true,
+        derived_data_path: "scan_derived_data",
+        output_types: 'junit',
+        output_style: 'raw',
+        result_bundle: true,
+        configuration: 'Debug',
+        output_directory: "fastlane/test_output/xctest/ios"
+      )
+      success = true
+    rescue => exception
+      raise exception
+    ensure
+      send_slack_load_shedder_integration_test_v3(success: success)
+    end
   end
 
 
@@ -639,7 +887,9 @@ platform :ios do
       './Tests/InstallationTests/SPMInstallation/SPMInstallation.xcodeproj/project.pbxproj',
       './Tests/InstallationTests/SPMCustomEntitlementComputationInstallation/SPMInstallation.xcodeproj/project.pbxproj',
       './Tests/InstallationTests/ReceiptParserInstallation/ReceiptParserInstallation.xcodeproj/project.pbxproj',
-      './Examples/MagicWeather/MagicWeather.xcodeproj/project.pbxproj'
+      './Examples/MagicWeather/MagicWeather.xcodeproj/project.pbxproj',
+      './Examples/MagicWeatherSwiftUI/Magic Weather SwiftUI.xcodeproj/project.pbxproj',
+      './Examples/SampleCat/SampleCat.xcodeproj/project.pbxproj'
     ]
 
     old_kind_line = "kind = branch;"
@@ -814,7 +1064,7 @@ platform :ios do
     purchase_tester_root = "#{project_root}/Tests/TestingApps/PurchaseTesterSwiftUI"
     xcodeproj_path = "#{purchase_tester_root}/PurchaseTester.xcodeproj"
 
-    # The following commands use configuration that lives in the PurchaseTesterSwiftUI directory, 
+    # The following commands use configuration that lives in the PurchaseTesterSwiftUI directory,
     # like the Matchfile. So we move to that project's directory to run them.
     Dir.chdir("#{purchase_tester_root}/fastlane") do
       match(readonly: true, platform: "ios")
@@ -823,7 +1073,7 @@ platform :ios do
         xcodeproj: xcodeproj_path,
       )
     end
-    
+
     build_ios_app(
       workspace: 'RevenueCat.xcworkspace',
       scheme: "PurchaseTester",
@@ -848,7 +1098,7 @@ platform :ios do
       UI.message("Dry run mode enabled. Skipping upload to TestFlight")
     end
 
-    # The following commands use configuration that lives in the PurchaseTesterSwiftUI directory, 
+    # The following commands use configuration that lives in the PurchaseTesterSwiftUI directory,
     # like the Matchfile. So we move to that project's directory to run them.
     Dir.chdir("#{purchase_tester_root}/fastlane") do
       match(readonly: true, platform: "macos", additional_cert_types: "mac_installer_distribution")
@@ -881,7 +1131,7 @@ platform :ios do
     else
         UI.message("Dry run mode enabled. Skipping upload to TestFlight")
     end
-    
+
   end
 
   desc "Clones or updates snapshots repo"
@@ -919,7 +1169,7 @@ platform :ios do
   lane :deploy_to_spm do
     source_repo = ENV["CIRCLE_REPOSITORY_URL"] || "https://github.com/revenuecat/#{repo_name}"
     destination_repo = source_repo.sub(/\.git\z/, "-spm.git")
-  
+
     git_clone_and_push(
       source_repo: source_repo,
       destination_repo: destination_repo
@@ -961,7 +1211,7 @@ platform :ios do
     rescue => ex
       UI.error("Failed to enable customer center. Error while applying changes from commit #{commit_hash}")
       UI.error(ex.message)
-      
+
       if UI.confirm("Do you want to abort the customer center enablement?")
         sh("git", "cherry-pick", "--abort")
         UI.message("Customer center enablement aborted")
@@ -1103,3 +1353,20 @@ def update_snapshots_commit(hash)
   File.write(snapshots_commit_file, hash)
 end
 
+# Slack
+
+lane :send_slack_load_shedder_integration_test_v3 do |options|
+  success = options[:success] || false
+  message =
+      if success
+          "iOS load shedder integration tests V3 finished successfully"
+      else
+          "iOS load shedder integration tests V3 failed"
+      end
+  slack(
+    message: message,
+    slack_url: ENV["SLACK_URL_LOAD_SHEDDER_INTEGRATION_TESTS"],
+    success: success,
+    default_payloads: [:git_branch]
+  )
+end

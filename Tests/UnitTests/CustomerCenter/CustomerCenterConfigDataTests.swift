@@ -11,6 +11,7 @@
 //
 //  Created by Cesar de la Vega on 8/7/24.
 
+import Foundation
 import Nimble
 import XCTest
 
@@ -50,7 +51,8 @@ class CustomerCenterConfigDataTests: TestCase {
                                 url: nil,
                                 openMethod: nil,
                                 promotionalOffer: nil,
-                                feedbackSurvey: nil
+                                feedbackSurvey: nil,
+                                refundWindow: nil
                             ),
                             .init(
                                 id: "path2",
@@ -64,8 +66,13 @@ class CustomerCenterConfigDataTests: TestCase {
                                                         subtitle: "Before you go",
                                                         productMapping: [
                                                             "product_id": "offer_id"
+                                                        ],
+                                                        crossProductPromotions: [
+                                                            "monthly": .init(storeOfferIdentifier: "offer_id",
+                                                                             targetProductId: "annual")
                                                         ]),
-                                feedbackSurvey: nil
+                                feedbackSurvey: nil,
+                                refundWindow: nil
                             ),
                             .init(
                                 id: "path3",
@@ -83,9 +90,17 @@ class CustomerCenterConfigDataTests: TestCase {
                                                                                       title: "Wait!",
                                                                                       subtitle: "Before you go",
                                                                                       productMapping: [
-                                                                                          "product_id": "offer_id"
-                                                                                      ]))
-                                                      ])
+                                                                                        "product_id": "offer_id"
+                                                                                      ],
+                                                                                      crossProductPromotions: [
+                                                                                        "monthly": .init(
+                                                                                            storeOfferIdentifier:
+                                                                                                "offer_id",
+                                                                                            targetProductId: "annual"
+                                                                                        )
+                                                                                      ])
+                                                             )]),
+                                refundWindow: nil
                             ),
                             .init(
                                 id: "path4",
@@ -99,14 +114,25 @@ class CustomerCenterConfigDataTests: TestCase {
                                                         subtitle: "Before you go",
                                                         productMapping: [
                                                             "product_id": "offer_id"
-                                                        ]),
-                                feedbackSurvey: nil
+                                                        ],
+                                                        crossProductPromotions: [
+                                                            "monthly": .init(storeOfferIdentifier: "offer_id",
+                                                                             targetProductId: "annual")]),
+                                feedbackSurvey: nil,
+                                refundWindow: nil
                             )
                         ]
                     )
                 ],
-                localization: .init(locale: "en_US", localizedStrings: ["key": "value"]),
-                support: .init(email: "support@example.com")
+                localization: CustomerCenterConfigResponse.Localization(
+                    locale: "en_US",
+                    localizedStrings: ["key": "value"]),
+                support: CustomerCenterConfigResponse.Support(
+                    email: "support@example.com",
+                    shouldWarnCustomerToUpdate: false,
+                    displayPurchaseHistoryLink: true,
+                    shouldWarnCustomersAboutMultipleSubscriptions: false
+                )
             ),
             lastPublishedAppVersion: "1.2.3",
             itunesTrackId: 123
@@ -178,9 +204,14 @@ class CustomerCenterConfigDataTests: TestCase {
 
         expect(configData.lastPublishedAppVersion) == "1.2.3"
         expect(configData.productId) == 123
+
+        expect(configData.support.shouldWarnCustomerToUpdate) == false
+        expect(configData.support.email) == "support@example.com"
+        expect(configData.support.displayPurchaseHistoryLink) == true
     }
 
-    func testUnknownValuesHandling() throws {
+    /// The real json uses `snake_case`. This test should initialise the struct with default values
+    func testDefaultValues() throws {
         let jsonString = """
         {
             "customerCenter": {
@@ -244,5 +275,9 @@ class CustomerCenterConfigDataTests: TestCase {
         expect(unknownPath?.type) == .unknown
         expect(unknownPath?.id) == "unknown_path"
         expect(unknownPath?.title) == "Unknown Path"
+
+        expect(configData.support.email) == "support@example.com"
+        expect(configData.support.shouldWarnCustomerToUpdate) == true
+        expect(configData.support.displayPurchaseHistoryLink) == false
     }
 }

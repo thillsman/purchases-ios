@@ -29,6 +29,8 @@ id<RCPurchasesDelegate> delegate;
 NSString *appUserID;
 BOOL isAnonymous;
 NSString *storeFrontCountryCode;
+RCWebPurchaseRedemption *webPurchaseRedemptionLink;
+NSURL *url;
 
 + (void)checkAPI {
     RCPurchases *p = [RCPurchases configureWithAPIKey:@""];
@@ -58,6 +60,7 @@ NSString *storeFrontCountryCode;
     simulatesAskToBuyInSandbox = [RCPurchases simulatesAskToBuyInSandbox];
     sharedPurchases = [RCPurchases sharedPurchases];
     isConfigured = [RCPurchases isConfigured];
+    RCWebPurchaseRedemption *webPurchaseRedemption = [RCPurchases parseAsWebPurchaseRedemption:url];
 
     // should have deprecation warning:
     // 'allowSharingAppStoreAccount' is deprecated: Configure behavior through the RevenueCat dashboard instead.
@@ -121,6 +124,10 @@ NSString *storeFrontCountryCode;
     [p setKeyword: @""];
     [p setCreative: nil];
     [p setCreative: @""];
+    #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
+    RCPurchaseParams *purchaseParams;
+    [p params:purchaseParams withCompletion:^(RCStoreTransaction *t, RCCustomerInfo *i, NSError *error, BOOL userCancelled) { }];
+    #endif
 
     [p getCustomerInfoWithFetchPolicy:RCCacheFetchPolicyFetchCurrent completion:^(RCCustomerInfo *customerInfo,
                                                                                   NSError *error) {}];
@@ -130,10 +137,40 @@ NSString *storeFrontCountryCode;
     [p getOfferingsWithCompletion:^(RCOfferings *info, NSError *error) {}];
     RCOfferings * _Nullable __unused offerings = p.cachedOfferings;
 
-    #if ENABLE_PURCHASE_PARAMS
-    RCPurchaseParams *packageParams = [[[[[RCPurchaseParamsBuilder alloc] initWithPackage:pack] withMetadata: @{@"foo":@"bar"}] withPromotionalOffer:pro] build];
-    RCPurchaseParams *productParams = [[[[[RCPurchaseParamsBuilder alloc] initWithProduct:storeProduct] withMetadata: @{@"foo":@"bar"}] withPromotionalOffer:pro] build];
-    [p params:packageParams withCompletion:^(RCStoreTransaction *t, RCCustomerInfo *i, NSError *error, BOOL userCancelled) { }];
+    #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
+    RCPurchaseParamsBuilder *packageParamBuilder = [[[RCPurchaseParamsBuilder alloc] initWithPackage:pack] withPromotionalOffer:pro];
+
+    #if ENABLE_TRANSACTION_METADATA
+    packageParamBuilder = [packageParamBuilder withMetadata:@{@"foo": @"bar"}];
+    #endif
+    RCPurchaseParams *packageParams = [packageParamBuilder build];
+
+
+    RCPurchaseParamsBuilder *productParamBuilder = [[[RCPurchaseParamsBuilder alloc] initWithProduct:storeProduct] withPromotionalOffer:pro];
+    #if ENABLE_TRANSACTION_METADATA
+    productParamBuilder = [packageParamBuilder withMetadata:@{@"foo": @"bar"}];
+    #endif
+    RCPurchaseParams *productParams = [productParamBuilder build];
+
+    // Win-back offers
+    if (@available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)) {
+        [p eligibleWinBackOffersForProduct:storeProduct
+                                completion:^(NSArray<RCWinBackOffer *> *winBackOffers, NSError *error) {
+            RCPurchaseParams *productParams = [[[[RCPurchaseParamsBuilder alloc] initWithProduct:storeProduct]
+                                                withWinBackOffer:winBackOffers.firstObject]
+                                               build];
+        }];
+
+        [p eligibleWinBackOffersForPackage:pack
+                                completion:^(NSArray<RCWinBackOffer *> *winBackOffers, NSError *error) {
+            RCPurchaseParams *packageParams = [[[[RCPurchaseParamsBuilder alloc] initWithPackage:pack]
+                                                withWinBackOffer:winBackOffers.firstObject]
+                                               build];
+        }];
+    }
+
+    [p purchaseWithParams:productParams completion:^(RCStoreTransaction *t, RCCustomerInfo *i, NSError *error, BOOL userCancelled) { }];
+    [p purchaseWithParams:packageParams completion:^(RCStoreTransaction *t, RCCustomerInfo *i, NSError *error, BOOL userCancelled) { }];
     #endif
 
     [p getProductsWithIdentifiers:@[@""] completion:^(NSArray<RCStoreProduct *> *products) { }];
@@ -152,6 +189,9 @@ NSString *storeFrontCountryCode;
 
     [p logIn:@"" completion:^(RCCustomerInfo *i, BOOL created, NSError *e) { }];
     [p logOutWithCompletion:^(RCCustomerInfo *i, NSError *e) { }];
+
+    [p redeemWebPurchaseWithWebPurchaseRedemption:webPurchaseRedemptionLink
+                                       completion:^(RCCustomerInfo * _Nullable ci, NSError * _Nullable e) { }];
 
     [p.delegate purchases:p receivedUpdatedCustomerInfo:pi];
     [p.delegate purchases:p
@@ -181,6 +221,8 @@ NSString *storeFrontCountryCode;
         [p presentCodeRedemptionSheet];
     }
 #endif
+
+    [p getStorefrontWithCompletion:^(RCStorefront * _Nullable s) { }];
 }
 
 + (void)checkEnums {
@@ -189,6 +231,7 @@ NSString *storeFrontCountryCode;
         case RCNormal:
         case RCIntro:
         case RCTrial:
+        case RCPrepaid:
             NSLog(@"%ld", (long)t);
     }
 
@@ -215,6 +258,7 @@ NSString *storeFrontCountryCode;
         case RCStoreMessageTypeBillingIssue:
         case RCStoreMessageTypePriceIncreaseConsent:
         case RCStoreMessageTypeGeneric:
+        case RCStoreMessageTypeWinBackOffer:
             NSLog(@"%ld", (long)smt);
     }
 

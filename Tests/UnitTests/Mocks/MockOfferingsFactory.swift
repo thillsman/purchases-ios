@@ -22,7 +22,8 @@ class MockOfferingsFactory: OfferingsFactory {
                              response: .init(currentOfferingId: "base",
                                              offerings: [],
                                              placements: nil,
-                                             targeting: nil))
+                                             targeting: nil,
+                                             uiConfig: nil))
         }
         if nilOfferings {
             return nil
@@ -41,8 +42,10 @@ class MockOfferingsFactory: OfferingsFactory {
                         Package(identifier: "$rc_monthly",
                                 packageType: .monthly,
                                 storeProduct: .from(product: storeProduct),
-                                offeringIdentifier: "base")
-                    ]
+                                offeringIdentifier: "base",
+                                webCheckoutUrl: nil)
+                    ],
+                    webCheckoutUrl: nil
                 )],
             currentOfferingID: "base",
             placements: nil,
@@ -50,9 +53,9 @@ class MockOfferingsFactory: OfferingsFactory {
             response: .init(currentOfferingId: "base", offerings: [
                 .init(identifier: "base", description: "This is the base offering",
                       packages: [
-                        .init(identifier: "", platformProductIdentifier: "$rc_monthly")
-                      ])
-            ], placements: nil, targeting: nil)
+                        .init(identifier: "", platformProductIdentifier: "$rc_monthly", webCheckoutUrl: nil)
+                      ], webCheckoutUrl: nil)
+            ], placements: nil, targeting: nil, uiConfig: nil)
 
         )
     }
@@ -68,11 +71,14 @@ extension OfferingsResponse {
             .init(identifier: "base",
                   description: "This is the base offering",
                   packages: [
-                    .init(identifier: "$rc_monthly", platformProductIdentifier: "monthly_freetrial")
-                  ])
+                    .init(identifier: "$rc_monthly",
+                          platformProductIdentifier: "monthly_freetrial",
+                          webCheckoutUrl: nil)
+                  ], webCheckoutUrl: nil)
         ],
         placements: nil,
-        targeting: nil
+        targeting: nil,
+        uiConfig: nil
     )
 
 }

@@ -13,6 +13,8 @@
 //  Created by Cesar de la Vega on 11/6/24.
 //
 
+// swiftlint:disable type_body_length function_body_length
+
 import Nimble
 import RevenueCat
 @testable import RevenueCatUI
@@ -20,12 +22,13 @@ import XCTest
 
 #if os(iOS)
 
+// swiftlint:disable file_length
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
 @available(macOS, unavailable)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
 @MainActor
-class CustomerCenterViewModelTests: TestCase {
+final class CustomerCenterViewModelTests: TestCase {
 
     private let error = TestError(message: "An error occurred")
 
@@ -37,16 +40,17 @@ class CustomerCenterViewModelTests: TestCase {
     }
 
     func testInitialState() {
-        let viewModel = CustomerCenterViewModel(customerCenterActionHandler: nil)
+        let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper())
 
         expect(viewModel.state) == .notLoaded
-        expect(viewModel.hasSubscriptions) == false
-        expect(viewModel.subscriptionsAreFromApple) == false
-        expect(viewModel.isLoaded) == false
+        expect(viewModel.hasPurchases).to(beFalse())
+        expect(viewModel.subscriptionsSection).to(beEmpty())
+        expect(viewModel.nonSubscriptionsSection).to(beEmpty())
+        expect(viewModel.state) == .notLoaded
     }
 
     func testStateChangeToError() {
-        let viewModel = CustomerCenterViewModel(customerCenterActionHandler: nil)
+        let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper())
 
         viewModel.state = .error(error)
 
@@ -56,74 +60,720 @@ class CustomerCenterViewModelTests: TestCase {
         default:
             fail("Expected state to be .error")
         }
+
+        expect(viewModel.subscriptionsSection).to(beEmpty())
     }
 
     func testIsLoaded() {
-        let viewModel = CustomerCenterViewModel(customerCenterActionHandler: nil)
+        let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper())
 
-        expect(viewModel.isLoaded) == false
+        expect(viewModel.state) == .notLoaded
 
         viewModel.state = .success
-        viewModel.configuration = CustomerCenterConfigTestData.customerCenterData
+        viewModel.configuration = CustomerCenterConfigData.default
 
-        expect(viewModel.isLoaded) == true
-    }
-
-    func testLoadHasSubscriptionsApple() async {
-        let viewModel = CustomerCenterViewModel(customerCenterActionHandler: nil,
-                                                customerInfoFetcher: {
-            return await CustomerCenterViewModelTests.customerInfoWithAppleSubscriptions
-        })
-
-        await viewModel.loadHasSubscriptions()
-
-        expect(viewModel.hasSubscriptions) == true
-        expect(viewModel.subscriptionsAreFromApple) == true
         expect(viewModel.state) == .success
     }
 
-    func testLoadHasSubscriptionsGoogle() async {
-        let viewModel = CustomerCenterViewModel(customerCenterActionHandler: nil,
-                                                customerInfoFetcher: {
-            return await CustomerCenterViewModelTests.customerInfoWithGoogleSubscriptions
-        })
+    func testLoadPurchaseInformationAlwaysRefreshesCustomerInfo() async throws {
+        let mockPurchases = MockCustomerCenterPurchases(
+            customerInfo: CustomerCenterViewModelTests.customerInfoWithAppleSubscriptions
+        )
 
-        await viewModel.loadHasSubscriptions()
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            purchasesProvider: mockPurchases
+        )
 
-        expect(viewModel.hasSubscriptions) == true
-        expect(viewModel.subscriptionsAreFromApple) == false
+        await viewModel.loadScreen()
+
+        expect(mockPurchases.customerInfoFetchPolicy) == .fetchCurrent
+    }
+
+    func testLoadAppleSubscriptions() async throws {
+        let product = PurchaseInformationFixtures.product(
+            id: "com.revenuecat.product",
+            title: "title",
+            duration: .month,
+            price: 2.99
+        )
+
+        let mockPurchases = MockCustomerCenterPurchases(
+            customerInfo: CustomerCenterViewModelTests.customerInfoWithAppleSubscriptions,
+            products: [product]
+        )
+
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            purchasesProvider: mockPurchases
+        )
+
+        await viewModel.loadScreen()
+
+        expect(viewModel.subscriptionsSection.count) == 1
+
+        let purchaseInformation = try XCTUnwrap(viewModel.subscriptionsSection.first)
+        expect(purchaseInformation.productIdentifier) == product.productIdentifier
+        expect(viewModel.nonSubscriptionsSection).to(beEmpty())
+
+        expect(purchaseInformation.store) == .appStore
         expect(viewModel.state) == .success
     }
 
-    func testLoadHasSubscriptionsNonActive() async {
-        let viewModel = CustomerCenterViewModel(customerCenterActionHandler: nil,
-                                                customerInfoFetcher: {
-            return await CustomerCenterViewModelTests.customerInfoWithoutSubscriptions
-        })
+    func testLoadHasSubscriptionsGoogle() async throws {
+        let mockPurchases = MockCustomerCenterPurchases(
+            customerInfo: CustomerCenterViewModelTests.customerInfoWithGoogleSubscriptions
+        )
 
-        await viewModel.loadHasSubscriptions()
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            purchasesProvider: mockPurchases
+        )
 
-        expect(viewModel.hasSubscriptions) == false
-        expect(viewModel.subscriptionsAreFromApple) == false
+        await viewModel.loadScreen()
+
+        expect(viewModel.hasPurchases).to(beTrue())
+        let purchaseInformation = try XCTUnwrap(viewModel.subscriptionsSection.first)
+        expect(purchaseInformation.productIdentifier) == "com.revenuecat.product"
+
+        expect(viewModel.nonSubscriptionsSection).to(beEmpty())
+        expect(purchaseInformation.store) == .playStore
         expect(viewModel.state) == .success
     }
 
-    func testLoadHasSubscriptionsFailure() async {
-        let viewModel = CustomerCenterViewModel(customerCenterActionHandler: nil,
-                                                customerInfoFetcher: {
-            throw TestError(message: "An error occurred")
-        })
+    func testLoadHasSubscriptionsNonActive() async throws {
+        let mockPurchases = MockCustomerCenterPurchases(
+            customerInfo: CustomerCenterViewModelTests.customerInfoWithoutSubscriptions
+        )
 
-        await viewModel.loadHasSubscriptions()
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            purchasesProvider: mockPurchases
+        )
 
-        expect(viewModel.hasSubscriptions) == false
-        expect(viewModel.subscriptionsAreFromApple) == false
+        await viewModel.loadScreen()
+
+        expect(viewModel.hasPurchases).to(beFalse())
+        expect(viewModel.subscriptionsSection).to(beEmpty())
+        expect(viewModel.nonSubscriptionsSection).to(beEmpty())
+
+        expect(viewModel.state) == .success
+    }
+
+    func testLoadHasSubscriptionsFailure() async throws {
+        let mockPurchases = MockCustomerCenterPurchases(customerInfoError: error)
+
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            purchasesProvider: mockPurchases
+        )
+
+        await viewModel.loadScreen()
+
+        expect(viewModel.subscriptionsSection).to(beEmpty())
+        expect(viewModel.nonSubscriptionsSection).to(beEmpty())
+
         switch viewModel.state {
         case .error(let stateError):
             expect(stateError as? TestError) == error
         default:
             fail("Expected state to be .error")
         }
+    }
+
+    func testShouldShowActiveSubscription_whenUserHasOneActiveSubscriptionOneEntitlement() async throws {
+        let productId = "com.revenuecat.product"
+        let purchaseDate = "2022-04-12T00:03:28Z"
+        let expirationDate = "2062-04-12T00:03:35Z"
+        let products = [
+            PurchaseInformationFixtures.product(
+                id: productId,
+                title: "title",
+                duration: .month,
+                price: 2.99
+            )
+        ]
+        let customerInfo = CustomerInfoFixtures.customerInfo(
+            subscriptions: [
+                CustomerInfoFixtures.Subscription(
+                    id: productId,
+                    store: "app_store",
+                    purchaseDate: purchaseDate,
+                    expirationDate: expirationDate,
+                    priceAmount: 4.99
+                )
+            ],
+            entitlements: [
+                CustomerInfoFixtures.Entitlement(
+                    entitlementId: "premium",
+                    productId: productId,
+                    purchaseDate: purchaseDate,
+                    expirationDate: expirationDate
+                )
+            ]
+        )
+
+        let viewModelWithoutRenewal = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            purchasesProvider: MockCustomerCenterPurchases(
+                customerInfo: customerInfo,
+                products: products
+            )
+        )
+
+        let mockRenewal = MockCustomerCenterStoreKitUtilities()
+        mockRenewal.returnRenewalPriceFromRenewalInfo = (2.99, "USD")
+
+        let viewModelWithRenewal = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            purchasesProvider: MockCustomerCenterPurchases(
+                customerInfo: customerInfo,
+                products: products
+            ),
+            customerCenterStoreKitUtilities: mockRenewal
+        )
+
+        try await checkExpectations(viewModelWithoutRenewal, renewalPrice: nil)
+        try await checkExpectations(
+            viewModelWithRenewal,
+            renewalPrice: .nonFree(formatted(price: 2.99, currencyCode: "USD"))
+        )
+
+        func checkExpectations(
+            _ viewModel: CustomerCenterViewModel,
+            renewalPrice: PurchaseInformation.RenewalPrice?
+        ) async throws {
+            await viewModel.loadScreen()
+
+            expect(viewModel.state) == .success
+
+            let purchaseInformation = try XCTUnwrap(viewModel.subscriptionsSection.first)
+            expect(viewModel.subscriptionsSection.count) == 1
+            expect(viewModel.subscriptionsSection.first?.productIdentifier)
+                == purchaseInformation.productIdentifier
+
+            expect(purchaseInformation.title) == "title"
+
+            expect(purchaseInformation.pricePaid) == .nonFree(formatted(price: 4.99))
+            if let renewalPrice {
+                expect(purchaseInformation.renewalPrice) == renewalPrice
+            } else {
+                expect(purchaseInformation.renewalPrice).to(beNil()) // no renewal info
+            }
+
+            expect(purchaseInformation.productIdentifier) == productId
+        }
+    }
+
+    func testShouldShowActiveSubscription_whenUserHasOneActiveSubscriptionAndNoEntitlement() async throws {
+        // Arrange
+        let productId = "com.revenuecat.product"
+        let purchaseDate = "2022-04-12T00:03:28Z"
+        let expirationDate = "2062-04-12T00:03:35Z"
+        let products = [PurchaseInformationFixtures.product(id: productId,
+                                                            title: "title",
+                                                            duration: .month,
+                                                            price: 2.99)]
+
+        let currency = "USD"
+        let customerInfo = CustomerInfoFixtures.customerInfo(
+            subscriptions: [
+                CustomerInfoFixtures.Subscription(
+                    id: productId,
+                    store: "app_store",
+                    purchaseDate: purchaseDate,
+                    expirationDate: expirationDate,
+                    priceAmount: 3.99,
+                    currency: currency
+                )
+            ],
+            entitlements: []
+        )
+
+        let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper(),
+                                                purchasesProvider: MockCustomerCenterPurchases(
+                                                    customerInfo: customerInfo,
+                                                    products: products
+                                                ))
+
+        // Act
+        await viewModel.loadScreen()
+
+        // Assert
+        expect(viewModel.state) == .success
+
+        let purchaseInformation = try XCTUnwrap(viewModel.subscriptionsSection.first)
+        expect(viewModel.subscriptionsSection.count) == 1
+        expect(viewModel.subscriptionsSection.first?.productIdentifier) == purchaseInformation.productIdentifier
+
+        expect(purchaseInformation.title) == "title"
+        expect(purchaseInformation.pricePaid) == .nonFree(formatted(price: 3.99, currencyCode: currency))
+        expect(purchaseInformation.renewalPrice).to(beNil())
+
+        expect(purchaseInformation.productIdentifier) == productId
+    }
+
+    func testShouldShowEarliestExpiringSubscription() async throws {
+        // Arrange
+        let yearlyProduct = (
+            id: "com.revenuecat.yearly",
+            exp: "2062-04-12T00:03:35Z", // Earlier expiration
+            title: "yearly",
+            duration: "1 year",
+            price: Decimal(29.99)
+        )
+        let monthlyProduct = (
+            id: "com.revenuecat.monthly",
+            exp: "2062-05-12T00:03:35Z", // Later expiration
+            title: "monthly",
+            duration: "1 month",
+            price: Decimal(2.99)
+        )
+
+        // Test both possible subscription array orders
+        let subscriptionOrders = [
+            [yearlyProduct, monthlyProduct],
+            [monthlyProduct, yearlyProduct]
+        ]
+
+        for subscriptions in subscriptionOrders {
+            let purchaseDate = "2022-04-12T00:03:28Z"
+            let products = [
+                PurchaseInformationFixtures.product(id: yearlyProduct.id,
+                                                    title: yearlyProduct.title,
+                                                    duration: .year,
+                                                    price: yearlyProduct.price),
+                PurchaseInformationFixtures.product(id: monthlyProduct.id,
+                                                    title: monthlyProduct.title,
+                                                    duration: .month,
+                                                    price: monthlyProduct.price)
+            ]
+
+            let customerInfo = CustomerInfoFixtures.customerInfo(
+                subscriptions: subscriptions.map { product in
+                    CustomerInfoFixtures.Subscription(
+                        id: product.id,
+                        store: "app_store",
+                        purchaseDate: purchaseDate,
+                        expirationDate: product.exp,
+                        priceAmount: product.price
+                    )
+                },
+                entitlements: [
+                    CustomerInfoFixtures.Entitlement(
+                        entitlementId: "premium",
+                        productId: yearlyProduct.id,
+                        purchaseDate: purchaseDate,
+                        expirationDate: yearlyProduct.exp
+                    )
+                ]
+            )
+
+            let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper(),
+                                                    purchasesProvider: MockCustomerCenterPurchases(
+                                                        customerInfo: customerInfo,
+                                                        products: products
+                                                    ))
+
+            // Act
+            await viewModel.loadScreen()
+
+            // Assert
+            expect(viewModel.state) == .success
+
+            let purchaseInformation = try XCTUnwrap(viewModel.subscriptionsSection.first)
+            expect(viewModel.subscriptionsSection.count) == 2
+            expect(viewModel.subscriptionsSection.first?.productIdentifier)
+                == purchaseInformation.productIdentifier
+
+            // Should always show yearly subscription since it expires first
+            expect(purchaseInformation.title) == yearlyProduct.title
+
+            expect(purchaseInformation.pricePaid) == .nonFree(formatted(price: 29.99))
+
+            expect(purchaseInformation.productIdentifier) == yearlyProduct.id
+        }
+    }
+
+    func testShouldShowClosestExpiring_whenUserHasLifetimeAndSubscriptions() async throws {
+        let productIdLifetime = "com.revenuecat.simpleapp.lifetime"
+        let productIdMonthly = "com.revenuecat.simpleapp.monthly"
+        let productIdYearly = "com.revenuecat.simpleapp.yearly"
+        let purchaseDateLifetime = "2024-11-21T16:04:20Z"
+        let purchaseDateMonthly = "2024-11-21T16:04:39Z"
+        let purchaseDateYearly = "2024-11-21T16:04:45Z"
+        let expirationDateMonthly = "3024-11-28T16:04:39Z"
+        let expirationDateYearly = "3025-11-21T16:04:45Z"
+
+        let lifetimeProduct = PurchaseInformationFixtures.product(id: productIdLifetime,
+                                                                  title: "lifetime",
+                                                                  duration: nil,
+                                                                  price: 29.99)
+        let monthlyProduct = PurchaseInformationFixtures.product(id: productIdMonthly,
+                                                                 title: "monthly",
+                                                                 duration: .month,
+                                                                 price: 2.99)
+        let yearlyProduct = PurchaseInformationFixtures.product(id: productIdYearly,
+                                                                title: "yearly",
+                                                                duration: .year,
+                                                                price: 29.99)
+
+        let products = [lifetimeProduct, monthlyProduct, yearlyProduct]
+
+        // Test both possible subscription array orders
+        let subscriptionOrders = [
+            [
+                (id: productIdMonthly, date: purchaseDateMonthly, exp: expirationDateMonthly),
+                (id: productIdYearly, date: purchaseDateYearly, exp: expirationDateYearly)
+            ],
+            [
+                (id: productIdYearly, date: purchaseDateYearly, exp: expirationDateYearly),
+                (id: productIdMonthly, date: purchaseDateMonthly, exp: expirationDateMonthly)
+            ]
+        ]
+
+        for subscriptions in subscriptionOrders {
+            let customerInfo = CustomerInfoFixtures.customerInfo(
+                subscriptions: subscriptions.map { subscription in
+                    CustomerInfoFixtures.Subscription(
+                        id: subscription.id,
+                        store: "app_store",
+                        purchaseDate: subscription.date,
+                        expirationDate: subscription.exp,
+                        priceAmount: 1.99
+                    )
+                },
+                entitlements: [
+                    CustomerInfoFixtures.Entitlement(
+                        entitlementId: "pro",
+                        productId: productIdLifetime,
+                        purchaseDate: purchaseDateLifetime,
+                        expirationDate: nil
+                    )
+                ],
+                nonSubscriptions: [
+                    CustomerInfoFixtures.NonSubscriptionTransaction(
+                        productId: productIdLifetime,
+                        id: "2fdd18f128",
+                        store: "app_store",
+                        purchaseDate: purchaseDateLifetime
+                    )
+                ]
+            )
+
+            let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper(),
+                                                    purchasesProvider: MockCustomerCenterPurchases(
+                                                        customerInfo: customerInfo,
+                                                        products: products
+                                                    ))
+
+            await viewModel.loadScreen()
+
+            expect(viewModel.state) == .success
+
+            let purchaseInformation = try XCTUnwrap(viewModel.subscriptionsSection.first)
+            expect(viewModel.subscriptionsSection.count) == 2
+            expect(viewModel.subscriptionsSection.first?.productIdentifier)
+                == purchaseInformation.productIdentifier
+
+            expect(purchaseInformation.title) == "monthly"
+            expect(purchaseInformation.pricePaid) == .nonFree(formatted(price: 1.99, currencyCode: "USD"))
+            expect(purchaseInformation.renewalPrice).to(beNil())
+
+            expect(purchaseInformation.productIdentifier) == productIdMonthly
+        }
+    }
+
+    func testShouldShowLifetime_whenUserHasLifetimeOneEntitlement() async throws {
+        let productIdLifetime = "com.revenuecat.simpleapp.lifetime"
+        let purchaseDateLifetime = "2024-11-21T16:04:20Z"
+
+        let products = [
+            PurchaseInformationFixtures.product(id: productIdLifetime,
+                                                title: "lifetime",
+                                                duration: nil,
+                                                price: 29.99)
+        ]
+
+        let customerInfo = CustomerInfoFixtures.customerInfo(
+            subscriptions: [],
+            entitlements: [
+                CustomerInfoFixtures.Entitlement(
+                    entitlementId: "pro",
+                    productId: productIdLifetime,
+                    purchaseDate: purchaseDateLifetime,
+                    expirationDate: nil
+                )
+            ],
+            nonSubscriptions: [
+                CustomerInfoFixtures.NonSubscriptionTransaction(
+                    productId: productIdLifetime,
+                    id: "2fdd18f128",
+                    store: "app_store",
+                    purchaseDate: purchaseDateLifetime
+                )
+            ]
+        )
+
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            purchasesProvider: MockCustomerCenterPurchases(
+                customerInfo: customerInfo,
+                products: products
+            )
+        )
+
+        await viewModel.loadScreen()
+
+        expect(viewModel.state) == .success
+
+        expect(viewModel.subscriptionsSection.count) == 0
+        let purchaseInformation = try XCTUnwrap(viewModel.nonSubscriptionsSection.first)
+        expect(viewModel.nonSubscriptionsSection.count) == 1
+
+        expect(purchaseInformation.title) == "lifetime"
+        expect(purchaseInformation.pricePaid) == .unknown // no info about non-subscriptions in customer info
+        expect(purchaseInformation.productIdentifier) == productIdLifetime
+    }
+
+    func testShouldShowEarliestExpiration_whenUserHasTwoActiveSubscriptionsTwoEntitlements() async throws {
+        // Arrange
+        let yearlyProduct = (
+            id: "com.revenuecat.product1",
+            exp: "2062-04-12T00:03:35Z", // Earlier expiration
+            title: "yearly",
+            duration: "1 year",
+            price: Decimal(29.99)
+        )
+        let monthlyProduct = (
+            id: "com.revenuecat.product2",
+            exp: "2062-05-12T00:03:35Z", // Later expiration
+            title: "monthly",
+            duration: "1 month",
+            price: Decimal(2.99)
+        )
+
+        // Test both possible subscription and entitlement array orders
+        let subscriptionOrders = [
+            [yearlyProduct, monthlyProduct],
+            [monthlyProduct, yearlyProduct]
+        ]
+
+        for subscriptions in subscriptionOrders {
+            let purchaseDate = "2022-04-12T00:03:28Z"
+            let products = [
+                PurchaseInformationFixtures.product(id: yearlyProduct.id,
+                                                    title: yearlyProduct.title,
+                                                    duration: .year,
+                                                    price: yearlyProduct.price),
+                PurchaseInformationFixtures.product(id: monthlyProduct.id,
+                                                    title: monthlyProduct.title,
+                                                    duration: .month,
+                                                    price: monthlyProduct.price)
+            ]
+
+            let customerInfo = CustomerInfoFixtures.customerInfo(
+                subscriptions: subscriptions.map { product in
+                    CustomerInfoFixtures.Subscription(
+                        id: product.id,
+                        store: "app_store",
+                        purchaseDate: purchaseDate,
+                        expirationDate: product.exp,
+                        priceAmount: product.price
+                    )
+                },
+                entitlements: subscriptions.map { product in
+                    CustomerInfoFixtures.Entitlement(
+                        entitlementId: product.id == yearlyProduct.id ? "premium" : "plus",
+                        productId: product.id,
+                        purchaseDate: purchaseDate,
+                        expirationDate: product.exp
+                    )
+                }
+            )
+
+            let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper(),
+                                                    purchasesProvider: MockCustomerCenterPurchases(
+                                                        customerInfo: customerInfo,
+                                                        products: products
+                                                    ))
+
+            // Act
+            await viewModel.loadScreen()
+
+            // Assert
+            expect(viewModel.state) == .success
+
+            let purchaseInformation = try XCTUnwrap(viewModel.subscriptionsSection.first)
+            expect(viewModel.subscriptionsSection.count) == 2
+            expect(viewModel.subscriptionsSection.first?.productIdentifier)
+                == purchaseInformation.productIdentifier
+
+            // Should always show yearly subscription since it expires first
+            expect(purchaseInformation.title) == yearlyProduct.title
+            expect(purchaseInformation.pricePaid) == .nonFree(formatted(price: 29.99))
+
+            expect(purchaseInformation.productIdentifier) == yearlyProduct.id
+        }
+    }
+
+    func testShouldShowAppleSubscription_whenUserHasBothGoogleAndAppleSubscriptions() async throws {
+        // Arrange
+        let googleProduct = (
+            id: "com.revenuecat.product1",
+            store: "play_store",
+            exp: "2062-04-12T00:03:35Z",
+            title: "yearly",
+            duration: "1 year",
+            price: Decimal(29.99)
+        )
+        let appleProduct = (
+            id: "com.revenuecat.product2",
+            store: "app_store",
+            exp: "2062-05-12T00:03:35Z",
+            title: "monthly",
+            duration: "1 month",
+            price: Decimal(2.99)
+        )
+
+        // Test both possible subscription and entitlement array orders
+        let subscriptionOrders = [
+            [googleProduct, appleProduct],
+            [appleProduct, googleProduct]
+        ]
+
+        for subscriptions in subscriptionOrders {
+            let purchaseDate = "2022-04-12T00:03:28Z"
+            let products = [
+                PurchaseInformationFixtures.product(id: googleProduct.id,
+                                                    title: googleProduct.title,
+                                                    duration: .year,
+                                                    price: googleProduct.price),
+                PurchaseInformationFixtures.product(id: appleProduct.id,
+                                                    title: appleProduct.title,
+                                                    duration: .month,
+                                                    price: appleProduct.price)
+            ]
+
+            let customerInfo = CustomerInfoFixtures.customerInfo(
+                subscriptions: subscriptions.map { product in
+                    CustomerInfoFixtures.Subscription(
+                        id: product.id,
+                        store: product.store,
+                        purchaseDate: purchaseDate,
+                        expirationDate: product.exp,
+                        priceAmount: product.price
+                    )
+                },
+                entitlements: subscriptions.map { product in
+                    CustomerInfoFixtures.Entitlement(
+                        entitlementId: product.id == googleProduct.id ? "premium" : "plus",
+                        productId: product.id,
+                        purchaseDate: purchaseDate,
+                        expirationDate: product.exp
+                    )
+                }
+            )
+
+            let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper(),
+                                                    purchasesProvider: MockCustomerCenterPurchases(
+                                                        customerInfo: customerInfo,
+                                                        products: products
+                                                    ))
+
+            // Act
+            await viewModel.loadScreen()
+
+            // Assert
+            expect(viewModel.state) == .success
+
+            let purchaseInformation = try XCTUnwrap(viewModel.subscriptionsSection.last)
+
+            expect(viewModel.subscriptionsSection.count) == 2
+            expect(viewModel.subscriptionsSection.last?.productIdentifier)
+                == purchaseInformation.productIdentifier
+
+            // We expect to see the monthly one, because the yearly one is a Google subscription
+            expect(purchaseInformation.title) == appleProduct.title
+            expect(purchaseInformation.pricePaid) == .nonFree(formatted(price: appleProduct.price))
+
+            expect(purchaseInformation.productIdentifier) == appleProduct.id
+        }
+    }
+
+    func testShouldShowActiveSubscription_withoutProductInformation() async throws {
+        // If product can't load because maybe it's from another app in same project
+
+        let productId = "com.revenuecat.product"
+        let purchaseDate = "2022-04-12T00:03:28Z"
+        let expirationDate = "2062-04-12T00:03:35Z"
+
+        let customerInfo = CustomerInfoFixtures.customerInfo(
+            subscriptions: [
+                CustomerInfoFixtures.Subscription(
+                    id: productId,
+                    store: "app_store",
+                    purchaseDate: purchaseDate,
+                    expirationDate: expirationDate,
+                    priceAmount: 1.99
+                )
+            ],
+            entitlements: [
+                CustomerInfoFixtures.Entitlement(
+                    entitlementId: "premium",
+                    productId: productId,
+                    purchaseDate: purchaseDate,
+                    expirationDate: expirationDate
+                )
+            ]
+        )
+
+        let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper(),
+                                                purchasesProvider: MockCustomerCenterPurchases(
+                                                    customerInfo: customerInfo,
+                                                    products: []
+                                                ))
+
+        await viewModel.loadScreen()
+
+        expect(viewModel.state) == .success
+        expect(viewModel.shouldShowList).to(beFalse())
+
+        let purchaseInformation = try XCTUnwrap(viewModel.subscriptionsSection.first)
+        expect(viewModel.subscriptionsSection.count) == 1
+        expect(viewModel.subscriptionsSection.first?.productIdentifier) == purchaseInformation.productIdentifier
+
+        expect(purchaseInformation.title) == "com.revenuecat.product" // product identifier
+        expect(purchaseInformation.store) == .appStore
+        expect(purchaseInformation.pricePaid) == .nonFree(formatted(price: 1.99)) // from transaction
+
+        expect(purchaseInformation.productIdentifier) == productId
+    }
+
+    func testLoadScreenNoActiveSubscription() async throws {
+        let customerInfo = CustomerInfoFixtures.customerInfoWithExpiredAppleSubscriptions
+        let mockPurchases = MockCustomerCenterPurchases(customerInfo: customerInfo)
+        let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper(),
+                                                purchasesProvider: mockPurchases)
+
+        await viewModel.loadScreen()
+
+        expect(viewModel.subscriptionsSection.first).to(beNil())
+        expect(viewModel.state) == .success
+        expect(viewModel.shouldShowList).to(beFalse())
+    }
+
+    func testLoadScreenFailure() async throws {
+        let mockPurchases = MockCustomerCenterPurchases(customerInfoError: error)
+        let viewModel = CustomerCenterViewModel(actionWrapper: CustomerCenterActionWrapper(),
+                                                purchasesProvider: mockPurchases)
+
+        await viewModel.loadScreen()
+
+        expect(viewModel.subscriptionsSection.first).to(beNil())
+        expect(viewModel.subscriptionsSection).to(beEmpty())
+        expect(viewModel.shouldShowList).to(beFalse())
+        expect(viewModel.state) == .error(error)
     }
 
     func testAppIsLatestVersion() {
@@ -168,11 +818,11 @@ class CustomerCenterViewModelTests: TestCase {
                 "expectedAppIsLatestVersion = \(expectedAppIsLatestVersion)"
             ) { _ in
                 let viewModel = CustomerCenterViewModel(
-                    customerCenterActionHandler: nil,
+                    actionWrapper: CustomerCenterActionWrapper(),
                     currentVersionFetcher: { return currentVersion }
                 )
                 viewModel.state = .success
-                viewModel.configuration = CustomerCenterConfigTestData.customerCenterData(
+                viewModel.configuration = CustomerCenterConfigData.mock(
                     lastPublishedAppVersion: latestVersion
                 )
 
@@ -181,6 +831,227 @@ class CustomerCenterViewModelTests: TestCase {
         }
     }
 
+    func testTrackImpression() throws {
+        let mockPurchases = MockCustomerCenterPurchases()
+        mockPurchases.isSandbox = true
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            purchasesProvider: mockPurchases
+        )
+
+        let darkMode = true
+        let displayMode: CustomerCenterPresentationMode = .fullScreen
+
+        viewModel.trackImpression(darkMode: darkMode, displayMode: displayMode)
+
+        expect(mockPurchases.trackedEvents.count) == 1
+        let trackedEvent = try XCTUnwrap(mockPurchases.trackedEvents.first as? CustomerCenterEvent)
+
+        expect(trackedEvent.data.darkMode) == darkMode
+        expect(trackedEvent.data.displayMode) == displayMode
+        expect(trackedEvent.data.localeIdentifier) == Locale.current.identifier
+        expect(trackedEvent.data.isSandbox) == true
+        if case .impression = trackedEvent {} else {
+            fail("Expected an impression event")
+        }
+
+        viewModel.trackImpression(darkMode: darkMode, displayMode: displayMode)
+        viewModel.trackImpression(darkMode: darkMode, displayMode: displayMode)
+        viewModel.trackImpression(darkMode: darkMode, displayMode: displayMode)
+        expect(mockPurchases.trackedEvents.count) == 1
+    }
+
+    func testShouldShowAppUpdateWarningsTrue() {
+        let mockPurchases = MockCustomerCenterPurchases()
+        let latestVersion = "3.0.0"
+        let currentVersion = "2.0.0"
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            currentVersionFetcher: { return currentVersion },
+            purchasesProvider: mockPurchases
+        )
+        viewModel.configuration = CustomerCenterConfigData.mock(
+            lastPublishedAppVersion: latestVersion,
+            shouldWarnCustomerToUpdate: true
+        )
+
+        expect(viewModel.shouldShowAppUpdateWarnings).to(beTrue())
+    }
+
+    func testShouldShowAppUpdateWarningsFalse() {
+        let mockPurchases = MockCustomerCenterPurchases()
+        let latestVersion = "3.0.0"
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            currentVersionFetcher: { return latestVersion },
+            purchasesProvider: mockPurchases
+        )
+        viewModel.configuration = CustomerCenterConfigData.mock(
+            lastPublishedAppVersion: latestVersion,
+            shouldWarnCustomerToUpdate: true
+        )
+
+        expect(viewModel.shouldShowAppUpdateWarnings).to(beFalse())
+    }
+
+    func testShouldShowAppUpdateWarningsFalseIfBlockedByConfig() {
+        let mockPurchases = MockCustomerCenterPurchases()
+        let latestVersion = "3.0.0"
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            currentVersionFetcher: { return latestVersion },
+            purchasesProvider: mockPurchases
+        )
+        viewModel.configuration = CustomerCenterConfigData.mock(
+            lastPublishedAppVersion: latestVersion,
+            shouldWarnCustomerToUpdate: false
+        )
+
+        expect(viewModel.shouldShowAppUpdateWarnings).to(beFalse())
+    }
+
+    func testPurchaseInformationIsStillLoadedIfRenewalInfoCantBeFetched() async {
+        let mockPurchases = MockCustomerCenterPurchases()
+        let mockStoreKitUtilities = MockCustomerCenterStoreKitUtilities()
+
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            currentVersionFetcher: { return "3.0.0" },
+            purchasesProvider: mockPurchases,
+            customerCenterStoreKitUtilities: mockStoreKitUtilities as CustomerCenterStoreKitUtilitiesType
+        )
+
+        expect(mockStoreKitUtilities.returnRenewalPriceFromRenewalInfo).to(beNil())
+
+        await viewModel.loadScreen()
+
+        expect(viewModel.subscriptionsSection.first).toNot(beNil())
+        expect(viewModel.shouldShowList).to(beFalse())
+        expect(mockStoreKitUtilities.renewalPriceFromRenewalInfoCallCount).to(equal(1))
+    }
+
+    func testPurchaseInformationUsesInfoFromRenewalInfoWhenAvailable() async {
+        let mockPurchases = MockCustomerCenterPurchases()
+        let mockStoreKitUtilities = MockCustomerCenterStoreKitUtilities()
+        mockStoreKitUtilities.returnRenewalPriceFromRenewalInfo = (5.0, "USD")
+
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            currentVersionFetcher: { return "3.0.0" },
+            purchasesProvider: mockPurchases,
+            customerCenterStoreKitUtilities: mockStoreKitUtilities as CustomerCenterStoreKitUtilitiesType
+        )
+
+        expect(mockStoreKitUtilities.returnRenewalPriceFromRenewalInfo).to(equal((5, "USD")))
+
+        await viewModel.loadScreen()
+
+        expect(viewModel.shouldShowList).to(beFalse())
+        expect(viewModel.subscriptionsSection.first?.pricePaid).to(equal(.nonFree(formatted(price: 4.99))))
+        expect(viewModel.subscriptionsSection.first?.renewalPrice).to(equal(.nonFree(formatted(price: 5.0))))
+        expect(mockStoreKitUtilities.renewalPriceFromRenewalInfoCallCount).to(equal(1))
+    }
+
+    func testOnDismissRestorePurchasesAlertReloadsScreen() async {
+        let customerInfo = CustomerInfoFixtures.customerInfoWithExpiredAppleSubscriptions
+        let mockPurchases = MockCustomerCenterPurchases(customerInfo: customerInfo)
+        let mockStoreKitUtilities = MockCustomerCenterStoreKitUtilities()
+        mockStoreKitUtilities.returnRenewalPriceFromRenewalInfo = (5, "USD")
+
+        let viewModel = CustomerCenterViewModel(
+            actionWrapper: CustomerCenterActionWrapper(),
+            currentVersionFetcher: { return "3.0.0" },
+            purchasesProvider: mockPurchases,
+            customerCenterStoreKitUtilities: mockStoreKitUtilities as CustomerCenterStoreKitUtilitiesType
+        )
+
+        // Initial state
+        expect(viewModel.state) == .notLoaded
+
+        await viewModel.loadScreen()
+
+        expect(viewModel.state) == .success
+
+        mockPurchases.customerInfo = CustomerInfoFixtures.customerInfoWithLifetimeAppSubscrition
+
+        // Dismiss alert and verify screen reloads
+        viewModel.onDismissRestorePurchasesAlert()
+
+        // Wait for the task to complete
+        await viewModel.currentTask?.value
+        expect(viewModel.state) == .success
+
+        // Verify screen was reloaded
+        expect(viewModel.configuration).toNot(beNil())
+        expect(mockPurchases.loadCustomerCenterCallCount) == 2
+    }
+
+    func testMultiplePurchases() {
+        // empty
+        var viewModel = CustomerCenterViewModel(
+            activeSubscriptionPurchases: [],
+            activeNonSubscriptionPurchases: [],
+            configuration: CustomerCenterConfigData.default
+        )
+
+        expect(viewModel.shouldShowList).to(beFalse())
+
+        // one active subscription
+        viewModel = CustomerCenterViewModel(
+            activeSubscriptionPurchases: [.yearlyExpiring()],
+            activeNonSubscriptionPurchases: [],
+            configuration: CustomerCenterConfigData.default
+        )
+
+        expect(viewModel.shouldShowList).to(beFalse())
+
+        // two active subscription
+        viewModel = CustomerCenterViewModel(
+            activeSubscriptionPurchases: [
+                .yearlyExpiring(productIdentifier: "1"),
+                    .yearlyExpiring(productIdentifier: "2")
+            ],
+            activeNonSubscriptionPurchases: [],
+            configuration: CustomerCenterConfigData.default
+        )
+
+        expect(viewModel.shouldShowList).to(beTrue())
+
+        // one active subscription and one purchase
+        viewModel = CustomerCenterViewModel(
+            activeSubscriptionPurchases: [
+                .yearlyExpiring(productIdentifier: "1")
+            ],
+            activeNonSubscriptionPurchases: [
+                .consumable
+            ],
+            configuration: CustomerCenterConfigData.default
+        )
+
+        expect(viewModel.shouldShowList).to(beTrue())
+
+        // one expired subscription
+        viewModel = CustomerCenterViewModel(
+            activeSubscriptionPurchases: [.expired],
+            activeNonSubscriptionPurchases: [],
+            configuration: CustomerCenterConfigData.default
+        )
+
+        expect(viewModel.shouldShowList).to(beFalse())
+
+        // one expired subscription and one purchase
+        viewModel = CustomerCenterViewModel(
+            activeSubscriptionPurchases: [.expired],
+            activeNonSubscriptionPurchases: [.consumable],
+            configuration: CustomerCenterConfigData.default
+        )
+        expect(viewModel.shouldShowList).to(beTrue())
+    }
+
+    private func formatted(price: Decimal, currencyCode: String = "USD") -> String {
+        PurchaseInformation.defaultNumberFormatter.currencyCode = currencyCode
+        return PurchaseInformation.defaultNumberFormatter.string(from: price as NSNumber)!
+    }
 }
 
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
@@ -318,6 +1189,11 @@ private extension CustomerCenterViewModelTests {
         )
     }()
 
+    func reformat(ISO8601Date: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: ISO8601DateFormatter().date(from: ISO8601Date)!)
+    }
 }
 
 #endif

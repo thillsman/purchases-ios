@@ -144,6 +144,28 @@ class DeviceCacheTests: TestCase {
         expect(self.deviceCache.isOfferingsCacheStale(isAppBackgrounded: true)).to(beTrue())
     }
 
+    func testOfferingsCacheStatusReturnsNotFoundIfNoCachedObject() {
+        expect(self.deviceCache.offeringsCacheStatus(isAppBackgrounded: true)) == .notFound
+        expect(self.deviceCache.offeringsCacheStatus(isAppBackgrounded: false)) == .notFound
+    }
+
+    func testOfferingsCacheStatusReturnsStaleOrValidDependingOnCacheStaleness() {
+        let mockCachedObject = MockInMemoryCachedOfferings<Offerings>()
+        self.deviceCache = DeviceCache(sandboxEnvironmentDetector: self.sandboxEnvironmentDetector,
+                                       userDefaults: self.mockUserDefaults,
+                                       offeringsCachedObject: mockCachedObject)
+        self.deviceCache.cache(offerings: .empty, appUserID: "user")
+        let isAppBackgrounded = false
+
+        mockCachedObject.stubbedCachedInstanceResult = .empty
+
+        mockCachedObject.stubbedIsCacheStaleResult = false
+        expect(self.deviceCache.offeringsCacheStatus(isAppBackgrounded: true)) == .valid
+
+        mockCachedObject.stubbedIsCacheStaleResult = true
+        expect(self.deviceCache.offeringsCacheStatus(isAppBackgrounded: true)) == .stale
+    }
+
     func testCustomerInfoCacheIsStaleIfLongerThanFiveMinutes() {
         let oldDate: Date! = Calendar.current.date(byAdding: .minute, value: -(6), to: Date())
         self.deviceCache = DeviceCache(sandboxEnvironmentDetector: self.sandboxEnvironmentDetector,
@@ -492,7 +514,9 @@ private extension DeviceCacheTests {
         )
 
         let offering = try XCTUnwrap(
-            OfferingsFactory().createOffering(from: products, offering: offeringsData)
+            OfferingsFactory().createOffering(from: products,
+                                              offering: offeringsData,
+                                              uiConfig: nil)
         )
         return Offerings(
             offerings: [offeringIdentifier: offering],
@@ -502,7 +526,8 @@ private extension DeviceCacheTests {
             response: .init(currentOfferingId: "base",
                             offerings: [offeringsData],
                             placements: nil,
-                            targeting: nil)
+                            targeting: nil,
+                            uiConfig: nil)
         )
     }
 
@@ -519,7 +544,8 @@ private extension Offerings {
             currentOfferingId: "",
             offerings: [],
             placements: nil,
-            targeting: nil
+            targeting: nil,
+            uiConfig: nil
         )
     )
 

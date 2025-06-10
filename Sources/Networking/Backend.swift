@@ -21,6 +21,7 @@ class Backend {
     let customer: CustomerAPI
     let internalAPI: InternalAPI
     let customerCenterConfig: CustomerCenterConfigAPI
+    let redeemWebPurchaseAPI: RedeemWebPurchaseAPI
 
     private let config: BackendConfiguration
 
@@ -59,6 +60,7 @@ class Backend {
         let offlineEntitlements = OfflineEntitlementsAPI(backendConfig: backendConfig)
         let internalAPI = InternalAPI(backendConfig: backendConfig)
         let customerCenterConfig = CustomerCenterConfigAPI(backendConfig: backendConfig)
+        let redeemWebPurchaseAPI = RedeemWebPurchaseAPI(backendConfig: backendConfig)
 
         self.init(backendConfig: backendConfig,
                   customerAPI: customer,
@@ -66,7 +68,8 @@ class Backend {
                   offeringsAPI: offerings,
                   offlineEntitlements: offlineEntitlements,
                   internalAPI: internalAPI,
-                  customerCenterConfig: customerCenterConfig)
+                  customerCenterConfig: customerCenterConfig,
+                  redeemWebPurchaseAPI: redeemWebPurchaseAPI)
     }
 
     required init(backendConfig: BackendConfiguration,
@@ -75,7 +78,8 @@ class Backend {
                   offeringsAPI: OfferingsAPI,
                   offlineEntitlements: OfflineEntitlementsAPI,
                   internalAPI: InternalAPI,
-                  customerCenterConfig: CustomerCenterConfigAPI) {
+                  customerCenterConfig: CustomerCenterConfigAPI,
+                  redeemWebPurchaseAPI: RedeemWebPurchaseAPI) {
         self.config = backendConfig
 
         self.customer = customerAPI
@@ -84,6 +88,7 @@ class Backend {
         self.offlineEntitlements = offlineEntitlements
         self.internalAPI = internalAPI
         self.customerCenterConfig = customerCenterConfig
+        self.redeemWebPurchaseAPI = redeemWebPurchaseAPI
     }
 
     func clearHTTPClientCaches() {
@@ -148,6 +153,19 @@ extension Backend {
             self.internalAPI.healthRequest(signatureVerification: signatureVerification) { error in
                 completion(.init(error))
             }
+        }
+    }
+
+}
+
+extension Backend {
+
+    /// Call the `/health_report` endpoint and perform a full validation of the SDK's configuration
+    /// - Parameter appUserID: An `appUserID` that allows the Backend to fetch offerings
+    /// - Returns: A report with all validation checks along with their status
+    func healthReportRequest(appUserID: String) async throws -> HealthReport {
+        try await Async.call { (completion: @escaping (Result<HealthReport, BackendError>) -> Void) in
+            self.internalAPI.healthReportRequest(appUserID: appUserID, completion: completion)
         }
     }
 

@@ -3,6 +3,7 @@
 // Copyright (c) 2020 Purchases. All rights reserved.
 //
 
+import Foundation
 @testable import RevenueCat
 
 // swiftlint:disable large_tuple line_length
@@ -34,6 +35,7 @@ class MockBackend: Backend {
         let customer = CustomerAPI(backendConfig: backendConfig, attributionFetcher: attributionFetcher)
         let internalAPI = InternalAPI(backendConfig: backendConfig)
         let customerCenterConfig = CustomerCenterConfigAPI(backendConfig: backendConfig)
+        let redeemWebPurchaseAPI = MockRedeemWebPurchaseAPI()
 
         self.init(backendConfig: backendConfig,
                   customerAPI: customer,
@@ -41,7 +43,8 @@ class MockBackend: Backend {
                   offeringsAPI: offerings,
                   offlineEntitlements: offlineEntitlements,
                   internalAPI: internalAPI,
-                  customerCenterConfig: customerCenterConfig)
+                  customerCenterConfig: customerCenterConfig,
+                  redeemWebPurchaseAPI: redeemWebPurchaseAPI)
     }
 
     override func post(receipt: EncodedAppleReceipt,

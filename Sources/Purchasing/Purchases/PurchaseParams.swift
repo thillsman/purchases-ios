@@ -13,8 +13,6 @@
 
 import Foundation
 
-#if ENABLE_PURCHASE_PARAMS
-
 /**
  * ``PurchaseParams`` can be used to add configuration options when making a purchase.
  * This class follows the builder pattern.
@@ -29,29 +27,44 @@ import Foundation
  * Purchases.shared.purchase(params)
  * ```
  */
-@objc(RCPurchaseParams) public final class PurchaseParams: NSObject {
+@objc(RCPurchaseParams) public final class PurchaseParams: NSObject, Sendable {
 
     let package: Package?
     let product: StoreProduct?
     let promotionalOffer: PromotionalOffer?
+
+    #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
+
     let winBackOffer: WinBackOffer?
     let metadata: [String: String]?
 
+    #endif
+
     private init(with builder: Builder) {
         self.promotionalOffer = builder.promotionalOffer
-        self.metadata = builder.metadata
         self.product = builder.product
         self.package = builder.package
+
+        #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
+
         self.winBackOffer = builder.winBackOffer
+        self.metadata = builder.metadata
+
+        #endif
     }
 
     /// The Builder for ```PurchaseParams```.
     @objc(RCPurchaseParamsBuilder) public class Builder: NSObject {
         private(set) var promotionalOffer: PromotionalOffer?
-        private(set) var metadata: [String: String]?
         private(set) var package: Package?
         private(set) var product: StoreProduct?
+
+        #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
+
         private(set) var winBackOffer: WinBackOffer?
+        private(set) var metadata: [String: String]?
+
+        #endif
 
         /**
          * Create a new builder with a ``Package``.
@@ -83,6 +96,9 @@ import Foundation
             return self
         }
 
+        #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
+
+        #if ENABLE_TRANSACTION_METADATA
         /**
          * Set `metadata`.
          * - Parameter metadata: Key-value pairs of metadata to attatch to the purchase.
@@ -91,8 +107,8 @@ import Foundation
             self.metadata = metadata
             return self
         }
+        #endif
 
-        #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
         /**
          * Sets a win-back offer for the purchase.
          * - Parameter winBackOffer: The ``WinBackOffer`` to apply to the purchase.
@@ -103,10 +119,11 @@ import Foundation
          * Availability: iOS 18.0+, macOS 15.0+, tvOS 18.0+, watchOS 11.0+, visionOS 2.0+
          */
         @available(iOS 18.0, macOS 15.0, tvOS 18.0, watchOS 11.0, visionOS 2.0, *)
-        internal func with(winBackOffer: WinBackOffer) -> Self {
+        @objc public func with(winBackOffer: WinBackOffer) -> Self {
             self.winBackOffer = winBackOffer
             return self
         }
+
         #endif
 
         /// Generate a ``Configuration`` object given the values configured by this builder.
@@ -115,5 +132,3 @@ import Foundation
         }
     }
 }
-
-#endif

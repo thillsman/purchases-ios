@@ -9,13 +9,11 @@ import Foundation
 import RevenueCat
 import SwiftUI
 
-// swiftlint:disable type_body_length file_length
+// swiftlint:disable type_body_length file_length force_unwrapping
 
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
-// @PublicForExternalTesting
 enum TestData {
 
-    // @PublicForExternalTesting
     static let customerInfo: CustomerInfo = {
         return .decode(
         """
@@ -150,68 +148,68 @@ enum TestData {
         subscriptionPeriod: nil,
         locale: Self.locale
     )
-    // @PublicForExternalTesting
     static let weeklyPackage = Package(
         identifier: PackageType.weekly.identifier,
         packageType: .weekly,
         storeProduct: Self.weeklyProduct.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
-    // @PublicForExternalTesting
     static let monthlyPackage = Package(
         identifier: PackageType.monthly.identifier,
         packageType: .monthly,
         storeProduct: Self.monthlyProduct.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
-    // @PublicForExternalTesting
     static let threeMonthPackage = Package(
         identifier: PackageType.threeMonth.identifier,
         packageType: .threeMonth,
         storeProduct: Self.threeMonthProduct.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
-    // @PublicForExternalTesting
     static let threeMonthPackageThailand = Package(
         identifier: PackageType.threeMonth.identifier,
         packageType: .threeMonth,
         storeProduct: Self.threeMonthProductThailand.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
-    // @PublicForExternalTesting
     static let sixMonthPackage = Package(
         identifier: PackageType.sixMonth.identifier,
         packageType: .sixMonth,
         storeProduct: Self.sixMonthProduct.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
-    // @PublicForExternalTesting
     static let annualPackage = Package(
         identifier: PackageType.annual.identifier,
         packageType: .annual,
         storeProduct: Self.annualProduct.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
-    // @PublicForExternalTesting
     static let annualPackage60 = Package(
         identifier: PackageType.annual.identifier,
         packageType: .annual,
         storeProduct: Self.annualProduct60.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
-    // @PublicForExternalTesting
     static let annualPackage60Taiwan = Package(
         identifier: PackageType.annual.identifier,
         packageType: .annual,
         storeProduct: Self.annualProduct60Taiwan.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
-    // @PublicForExternalTesting
     static let lifetimePackage = Package(
         identifier: PackageType.lifetime.identifier,
         packageType: .lifetime,
         storeProduct: Self.lifetimeProduct.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
 
     #if DEBUG
@@ -236,6 +234,27 @@ enum TestData {
         discounts: [],
         locale: Self.locale
     )
+    static let productWithIntroOfferPayUpFront = TestStoreProduct(
+        localizedTitle: "PRO monthly",
+        price: 3.99,
+        localizedPriceString: "$3.99",
+        productIdentifier: "com.revenuecat.product_5",
+        productType: .autoRenewableSubscription,
+        localizedDescription: "PRO monthly",
+        subscriptionGroupIdentifier: "group",
+        subscriptionPeriod: .init(value: 1, unit: .month),
+        introductoryDiscount: .init(
+            identifier: "intro",
+            price: 1.99,
+            localizedPriceString: "$1.99",
+            paymentMode: .payUpFront,
+            subscriptionPeriod: .init(value: 1, unit: .week),
+            numberOfPeriods: 1,
+            type: .introductory
+        ),
+        discounts: [],
+        locale: Self.locale
+    )
     static let productWithNoIntroOffer = TestStoreProduct(
         localizedTitle: "PRO annual",
         price: 34.99,
@@ -253,27 +272,38 @@ enum TestData {
         identifier: "Custom",
         packageType: .custom,
         storeProduct: Self.annualProduct.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
 
     static let unknownPackage = Package(
         identifier: "Unknown",
         packageType: .unknown,
         storeProduct: Self.annualProduct.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
 
     static let packageWithIntroOffer = Package(
         identifier: PackageType.monthly.identifier,
         packageType: .monthly,
         storeProduct: productWithIntroOffer.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
+    )
+    static let packageWithIntroOfferPayUpFront = Package(
+        identifier: PackageType.monthly.identifier,
+        packageType: .monthly,
+        storeProduct: productWithIntroOfferPayUpFront.toStoreProduct(),
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
     static let packageWithNoIntroOffer = Package(
         identifier: PackageType.annual.identifier,
         packageType: .annual,
         storeProduct: productWithNoIntroOffer.toStoreProduct(),
-        offeringIdentifier: Self.offeringIdentifier
+        offeringIdentifier: Self.offeringIdentifier,
+        webCheckoutUrl: nil
     )
     static let packages = [
         Self.packageWithIntroOffer,
@@ -309,7 +339,8 @@ enum TestData {
         serverDescription: "Main offering",
         metadata: [:],
         paywall: Self.paywallWithIntroOffer,
-        availablePackages: Self.packages
+        availablePackages: Self.packages,
+        webCheckoutUrl: nil
     )
 
     static let offeringWithNoIntroOffer = Offering(
@@ -317,7 +348,8 @@ enum TestData {
         serverDescription: "Main offering",
         metadata: [:],
         paywall: Self.paywallWithNoIntroOffer,
-        availablePackages: Self.packages
+        availablePackages: Self.packages,
+        webCheckoutUrl: nil
     )
 
     static let offeringWithMultiPackagePaywall = Offering(
@@ -355,7 +387,8 @@ enum TestData {
         ),
         availablePackages: [Self.weeklyPackage,
                             Self.monthlyPackage,
-                            Self.annualPackage]
+                            Self.annualPackage],
+        webCheckoutUrl: nil
     )
 
     static let offeringWithSinglePackageFeaturesPaywall = Offering(
@@ -412,7 +445,8 @@ enum TestData {
         ),
         availablePackages: [Self.weeklyPackage,
                             Self.monthlyPackage,
-                            Self.annualPackage]
+                            Self.annualPackage],
+        webCheckoutUrl: nil
     )
 
     static let offeringWithMultiPackageHorizontalPaywall = Offering(
@@ -465,7 +499,8 @@ enum TestData {
         availablePackages: [TestData.monthlyPackage,
                             TestData.sixMonthPackage,
                             TestData.annualPackage,
-                            TestData.lifetimePackage]
+                            TestData.lifetimePackage],
+        webCheckoutUrl: nil
     )
 
     static let offeringWithTemplate5Paywall = Offering(
@@ -525,7 +560,8 @@ enum TestData {
         ),
         availablePackages: [TestData.monthlyPackage,
                             TestData.sixMonthPackage,
-                            TestData.annualPackage]
+                            TestData.annualPackage],
+        webCheckoutUrl: nil
     )
 
     static let offeringWithTemplate7Paywall = Offering(
@@ -721,7 +757,8 @@ enum TestData {
                             TestData.sixMonthPackage,
                             TestData.threeMonthPackage,
                             TestData.annualPackage,
-                            TestData.lifetimePackage]
+                            TestData.lifetimePackage],
+        webCheckoutUrl: nil
     )
 
     static let offeringWithNoPaywall = Offering(
@@ -729,7 +766,8 @@ enum TestData {
         serverDescription: "Offering",
         metadata: [:],
         paywall: nil,
-        availablePackages: Self.packages
+        availablePackages: Self.packages,
+        webCheckoutUrl: nil
     )
 
     static let lightColors: PaywallData.Configuration.Colors = .init(
@@ -787,12 +825,7 @@ enum TestData {
 
     #endif
 
-    #if os(watchOS)
-    // `Locale.current` in watchOS produces `en_001` when running tests
     static let locale: Locale = .init(identifier: "en_US")
-    #else
-    static let locale: Locale = .current
-    #endif
 
     private static let offeringIdentifier = "offering"
 
@@ -833,7 +866,6 @@ extension PaywallColor: ExpressibleByStringLiteral {
 
 extension PackageType {
 
-    // @PublicForExternalTesting
     var identifier: String {
         return Package.string(from: self)!
     }

@@ -52,6 +52,7 @@ func checkEntitlementInfoEnums() {
          .amazon,
          .rcBilling,
          .unknownStore,
+         .paddle,
          .external:
         print(store!)
     @unknown default:
@@ -61,7 +62,8 @@ func checkEntitlementInfoEnums() {
     switch pType! {
     case .intro,
          .trial,
-         .normal:
+         .normal,
+         .prepaid:
         print(pType!)
     @unknown default:
         fatalError()

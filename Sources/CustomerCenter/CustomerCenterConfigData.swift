@@ -18,7 +18,7 @@ import Foundation
 // swiftlint:disable missing_docs nesting file_length type_body_length
 public typealias RCColor = PaywallColor
 
-public struct CustomerCenterConfigData {
+public struct CustomerCenterConfigData: Equatable {
 
     public let screens: [Screen.ScreenType: Screen]
     public let appearance: Appearance
@@ -41,7 +41,7 @@ public struct CustomerCenterConfigData {
         self.productId = productId
     }
 
-    public struct Localization {
+    public struct Localization: Equatable {
 
         let locale: String
         let localizedStrings: [String: String]
@@ -51,8 +51,9 @@ public struct CustomerCenterConfigData {
             self.localizedStrings = localizedStrings
         }
 
-        public enum CommonLocalizedString: String {
+        public enum CommonLocalizedString: String, Equatable {
 
+            case copy = "copy"
             case noThanks = "no_thanks"
             case noSubscriptionsFound = "no_subscriptions_found"
             case tryCheckRestore = "try_check_restore"
@@ -74,6 +75,7 @@ public struct CustomerCenterConfigData {
             case defaultBody = "default_body"
             case defaultSubject = "default_subject"
             case dismiss = "dismiss"
+            case done = "done"
             case unknown = "unknown"
             case updateWarningTitle = "update_warning_title"
             case updateWarningDescription = "update_warning_description"
@@ -88,16 +90,79 @@ public struct CustomerCenterConfigData {
             case goingToCheckPurchases = "going_to_check_purchases"
             case checkPastPurchases = "check_past_purchases"
             case purchasesRecovered = "purchases_recovered"
+            case purchasesRestoring = "purchases_restoring"
             case purchasesRecoveredExplanation = "purchases_recovered_explanation"
-            case purchasesNotRecovered = "purchases_not_recovered"
+            case purchasesNotFound = "purchases_not_found"
+            case purchasesNotRecoveredExplanation = "purchases_not_recovered"
             case manageSubscription = "manage_subscription"
             case youHavePromo = "you_have_promo"
             case youHaveLifetime = "you_have_lifetime"
             case free = "free"
             case never = "never"
+            case seeAllPurchases = "screen_management_see_all_purchases"
+            case purchaseInfoPurchasedOnDate = "purchase_info_purchased_on_date"
+            case purchaseInfoExpiredOnDate = "purchase_info_expired_on_date"
+            case purchaseInfoRenewsOnDate = "purchase_info_renews_on_date"
+            case purchaseInfoExpiresOnDate = "purchase_info_expires_on_date"
+            case activeSubscriptions = "screen_purchase_history_active_subscriptions_title"
+            case expiredSubscriptions = "screen_purchase_history_expired_subscriptions_title"
+            case otherPurchases = "screen_purchase_history_others_title"
+            case accountDetails = "screen_purchase_history_account_details_title"
+            case dateWhenAppWasPurchased = "screen_purchase_history_original_purchase_date"
+            case userId = "screen_purchase_history_user_id"
+            case purchaseHistory = "screen_purchase_history_title"
+            case sharedThroughFamilyMember = "shared_through_family_member"
+            case active = "active"
+            case inactive = "inactive"
+            case introductoryPrice = "introductory_price"
+            case trialPeriod = "trial_period"
+            case productName = "product_name"
+            case paidPrice = "paid_price"
+            case originalDownloadDate = "original_download_date"
+            case status = "status"
+            case nextRenewalDate = "next_renewal"
+            case unsubscribedAt = "unsubscribed_at"
+            case billingIssueDetectedAt = "billing_issue_detected_at"
+            case gracePeriodExpiresAt = "grace_period_expires_at"
+            case periodType = "period_type"
+            case refundedAt = "refunded_at"
+            case store = "store"
+            case productID = "product_id"
+            case sandbox = "sandbox"
+            case transactionID = "transaction_id"
+            case answerYes = "yes"
+            case answerNo = "no"
+            case storeAppStore = "store_app_store"
+            case storeMacAppStore = "store_mac_app_store"
+            case storePlayStore = "store_google_play_store"
+            case storeStripe = "store_stripe"
+            case storePromotional = "store_promotional"
+            case storeAmazon = "store_amazon_store"
+            case storeRCBilling = "store_web"
+            case storeExternal = "store_external"
+            case storeUnknownStore = "store_unknown"
+            case storePaddle = "store_paddle"
+            case debugHeaderTitle = "Debug"
+            case youMayHaveDuplicatedSubscriptionsTitle = "you_may_have_duplicated_subscriptions_title"
+            case youMayHaveDuplicatedSubscriptionsSubtitle = "you_may_have_duplicated_subscriptions_subtitle"
+            case pricePaid = "price_paid"
+            case expiresOnDateWithoutChanges = "expires_on_date_without_changes"
+            case renewsOnDateForPrice = "renews_on_date_for_price"
+            case renewsOnDate = "renews_on_date"
+            case priceAfterwards = "price_afterwards"
+            case freeTrialUntilDate = "free_trial_until_date"
+            case priceExpiresOnDateWithoutChanges = "price_expires_on_date_without_changes"
+            case badgeCancelled = "badge_cancelled"
+            case badgeFreeTrial = "free_trial"
+            case refundSuccess = "refund_success"
+            case actionsSectionTitle = "actions_section_title"
+            case subscriptionsSectionTitle = "subscriptions_section_title"
+            case purchasesSectionTitle = "purchases_section_title"
 
             var defaultValue: String {
                 switch self {
+                case .copy:
+                    return "Copy"
                 case .noThanks:
                     return "No, thanks"
                 case .noSubscriptionsFound:
@@ -111,18 +176,22 @@ public struct CustomerCenterConfigData {
                 case .checkPastPurchases:
                     return "Check past purchases"
                 case .purchasesRecovered:
-                    return "Purchases recovered!"
+                    return "Purchases restored"
+                case .purchasesRestoring:
+                    return "Restoring..."
                 case .purchasesRecoveredExplanation:
-                    return "We applied the previously purchased items to your account. Sorry for the inconvenience."
-                case .purchasesNotRecovered:
-                    return "We couldn't find any additional purchases under this account. " +
-                    "Contact support for assistance if you think this is an error."
+                    return "We restored your past purchases and applied them to your account."
+                case .purchasesNotFound:
+                    return "No past purchases"
+                case .purchasesNotRecoveredExplanation:
+                    return "We could not find any purchases with your account. " +
+                    "If you think this is an error, please contact support."
                 case .cancel:
                     return "Cancel"
                 case .billingCycle:
                     return "Billing cycle"
                 case .currentPrice:
-                    return "Current price"
+                    return "Price"
                 case .expired:
                     return "Expired"
                 case .expires:
@@ -134,7 +203,7 @@ public struct CustomerCenterConfigData {
                 case .refundErrorGeneric:
                     return "An error occurred while processing the refund request. Please try again."
                 case .refundGranted:
-                    return "Refund granted successfully!"
+                    return "Refund requested"
                 case .refundStatus:
                     return "Refund status"
                 case .subEarliestExpiration:
@@ -151,6 +220,8 @@ public struct CustomerCenterConfigData {
                     return "Support Request"
                 case .dismiss:
                     return "Dismiss"
+                case .done:
+                    return "Done"
                 case .unknown:
                     return "Unknown"
                 case .updateWarningTitle:
@@ -174,8 +245,8 @@ public struct CustomerCenterConfigData {
                     return "You have an active subscription from the Amazon Appstore. " +
                     "You can manage your subscription in the Amazon Appstore app."
                 case .webSubscriptionManage:
-                    return "You have an active subscription that was created on the web." +
-                    " You can manage your subscription by visiting your account."
+                    return "You have an active subscription that was purchased on the web."
+                    + " You can manage your subscription using the button below."
                 case .manageSubscription:
                     return "Manage your subscription"
                 case .youHavePromo:
@@ -186,18 +257,135 @@ public struct CustomerCenterConfigData {
                     return "Free"
                 case .never:
                     return "Never"
+                case .seeAllPurchases:
+                    return "See All Purchases"
+                case .purchaseInfoPurchasedOnDate:
+                    return "Purchased on {{ date }}"
+                case .purchaseInfoExpiredOnDate:
+                    return "Expired on {{ date }}"
+                case .purchaseInfoRenewsOnDate:
+                    return "Renews on {{ date }}"
+                case .purchaseInfoExpiresOnDate:
+                    return "Expires on {{ date }}"
+                case .activeSubscriptions:
+                    return "Active Subscriptions"
+                case .expiredSubscriptions:
+                    return "Expired Subscriptions"
+                case .otherPurchases:
+                    return "Other"
+                case .accountDetails:
+                    return "Account Details"
+                case .dateWhenAppWasPurchased:
+                    return "Original Download Date"
+                case .userId:
+                    return "User ID"
+                case .purchaseHistory:
+                    return "Purchase History"
+                case .sharedThroughFamilyMember:
+                    return "Shared through family member"
+                case .active:
+                    return "Active"
+                case .inactive:
+                    return "Inactive"
+                case .introductoryPrice:
+                    return "Introductory Price"
+                case .trialPeriod:
+                    return "Trial Period"
+                case .productName:
+                    return "Product Name"
+                case .paidPrice:
+                    return "Paid Price"
+                case .originalDownloadDate:
+                    return "Original Download Date"
+                case .status:
+                    return "Status"
+                case .nextRenewalDate:
+                    return "Next Renewal"
+                case .unsubscribedAt:
+                    return "Unsubscribed At"
+                case .billingIssueDetectedAt:
+                    return "Billing Issue Detected At"
+                case .gracePeriodExpiresAt:
+                    return "Grace Period Expires At"
+                case .periodType:
+                    return "Period Type"
+                case .refundedAt:
+                    return "Refunded At"
+                case .store:
+                    return "Store"
+                case .productID:
+                    return "Product ID"
+                case .sandbox:
+                    return "Sandbox"
+                case .transactionID:
+                    return "Transaction ID"
+                case .answerYes:
+                    return "Yes"
+                case .answerNo:
+                    return "No"
+                case .storeAppStore:
+                    return "Apple App Store"
+                case .storeMacAppStore:
+                    return "Mac App Store"
+                case .storePlayStore:
+                    return "Google Play Store"
+                case .storeStripe:
+                    return "Stripe"
+                case .storePromotional:
+                    return "Promotional"
+                case .storeAmazon:
+                    return "Amazon Store"
+                case .storeRCBilling:
+                    return "Web"
+                case .storeExternal:
+                    return "External Purchases"
+                case .storeUnknownStore:
+                    return "Unknown Store"
+                case .storePaddle:
+                    return "Paddle"
+                case .debugHeaderTitle:
+                    return "Debug"
+                case .youMayHaveDuplicatedSubscriptionsTitle:
+                    return "You may have duplicated subscriptions"
+                case .youMayHaveDuplicatedSubscriptionsSubtitle:
+                    return "You might be subscribed both on the web and through the App Store." +
+                        "To avoid being charged twice, please cancel your iOS subscription in your device settings."
+                case .pricePaid:
+                    return "Paid {{ price }}."
+                case .expiresOnDateWithoutChanges:
+                    return "Expires on {{ date }} without further charges."
+                case .renewsOnDateForPrice:
+                    return "Renews on {{ date }} for {{ price }}."
+                case .renewsOnDate:
+                    return "Renews on {{ date }}."
+                case .priceAfterwards:
+                    return "{{ price }} afterwards."
+                case .freeTrialUntilDate:
+                    return "Free trial until {{ date }}."
+                case .priceExpiresOnDateWithoutChanges:
+                     return "{{ price }}. Expires on {{ date }} without changes."
+                case .badgeCancelled:
+                    return "Cancelled"
+                case .badgeFreeTrial:
+                    return "Free trial"
+                case .refundSuccess:
+                    return "Apple has received the refund request"
+                case .actionsSectionTitle:
+                    return "Actions"
+                case .subscriptionsSectionTitle:
+                    return "Subscriptions"
+                case .purchasesSectionTitle:
+                    return "Purchases"
                 }
             }
-
         }
 
-        public func commonLocalizedString(for key: CommonLocalizedString) -> String {
-            return self.localizedStrings[key.rawValue] ?? key.defaultValue
+        public subscript(_ key: CommonLocalizedString) -> String {
+            localizedStrings[key.rawValue] ?? key.defaultValue
         }
-
     }
 
-    public struct HelpPath {
+    public struct HelpPath: Equatable {
 
         public let id: String
         public let title: String
@@ -205,29 +393,37 @@ public struct CustomerCenterConfigData {
         public let openMethod: OpenMethod?
         public let type: PathType
         public let detail: PathDetail?
+        public let refundWindowDuration: RefundWindowDuration?
 
         public init(id: String,
                     title: String,
                     url: URL? = nil,
                     openMethod: OpenMethod? = nil,
                     type: PathType,
-                    detail: PathDetail?) {
+                    detail: PathDetail?,
+                    refundWindowDuration: RefundWindowDuration? = nil) {
             self.id = id
             self.title = title
             self.url = url
             self.openMethod = openMethod
             self.type = type
             self.detail = detail
+            self.refundWindowDuration = refundWindowDuration
         }
 
-        public enum PathDetail {
+        public enum PathDetail: Equatable {
 
             case promotionalOffer(PromotionalOffer)
             case feedbackSurvey(FeedbackSurvey)
 
         }
 
-        public enum PathType: String {
+        public enum RefundWindowDuration: Equatable {
+            case forever
+            case duration(ISODuration)
+        }
+
+        public enum PathType: String, Equatable {
 
             case missingPurchase = "MISSING_PURCHASE"
             case refundRequest = "REFUND_REQUEST"
@@ -255,7 +451,7 @@ public struct CustomerCenterConfigData {
 
         }
 
-        public enum OpenMethod: String {
+        public enum OpenMethod: String, Equatable {
 
             case inApp = "IN_APP"
             case external = "EXTERNAL"
@@ -273,29 +469,45 @@ public struct CustomerCenterConfigData {
 
         }
 
-        public struct PromotionalOffer {
+        public struct PromotionalOffer: Equatable {
 
             public let iosOfferId: String
             public let eligible: Bool
             public let title: String
             public let subtitle: String
             public let productMapping: [String: String]
+            public let crossProductPromotions: [String: CrossProductPromotion]
+
+            public struct CrossProductPromotion: Equatable {
+                public let storeOfferIdentifier: String
+                public let targetProductId: String
+
+                public init(
+                    storeofferingidentifier: String,
+                    targetproductid: String
+                ) {
+                    self.storeOfferIdentifier = storeofferingidentifier
+                    self.targetProductId = targetproductid
+                }
+            }
 
             public init(iosOfferId: String,
                         eligible: Bool,
                         title: String,
                         subtitle: String,
-                        productMapping: [String: String]) {
+                        productMapping: [String: String],
+                        crossProductPromotions: [String: CrossProductPromotion] = [:]) {
                 self.iosOfferId = iosOfferId
                 self.eligible = eligible
                 self.title = title
                 self.subtitle = subtitle
                 self.productMapping = productMapping
+                self.crossProductPromotions = crossProductPromotions
             }
 
         }
 
-        public struct FeedbackSurvey {
+        public struct FeedbackSurvey: Equatable {
 
             public let title: String
             public let options: [Option]
@@ -305,7 +517,7 @@ public struct CustomerCenterConfigData {
                 self.options = options
             }
 
-            public struct Option {
+            public struct Option: Equatable {
 
                 public let id: String
                 public let title: String
@@ -323,7 +535,7 @@ public struct CustomerCenterConfigData {
 
     }
 
-    public struct Appearance {
+    public struct Appearance: Equatable {
 
         public let accentColor: ColorInformation
         public let textColor: ColorInformation
@@ -343,7 +555,7 @@ public struct CustomerCenterConfigData {
             self.buttonBackgroundColor = buttonBackgroundColor
         }
 
-        public struct ColorInformation {
+        public struct ColorInformation: Equatable {
 
             public var light: RCColor?
             public var dark: RCColor?
@@ -376,7 +588,7 @@ public struct CustomerCenterConfigData {
 
     }
 
-    public struct Screen {
+    public struct Screen: Equatable {
 
         public let type: ScreenType
         public let title: String
@@ -390,7 +602,7 @@ public struct CustomerCenterConfigData {
             self.paths = paths
         }
 
-        public enum ScreenType: String {
+        public enum ScreenType: String, Equatable {
             case management = "MANAGEMENT"
             case noActive = "NO_ACTIVE"
             case unknown
@@ -409,12 +621,23 @@ public struct CustomerCenterConfigData {
 
     }
 
-    public struct Support {
+    public struct Support: Equatable {
 
         public let email: String
+        public let shouldWarnCustomerToUpdate: Bool
+        public let displayPurchaseHistoryLink: Bool
+        public let shouldWarnCustomersAboutMultipleSubscriptions: Bool
 
-        public init(email: String) {
+        public init(
+            email: String,
+            shouldWarnCustomerToUpdate: Bool,
+            displayPurchaseHistoryLink: Bool,
+            shouldWarnCustomersAboutMultipleSubscriptions: Bool
+        ) {
             self.email = email
+            self.shouldWarnCustomerToUpdate = shouldWarnCustomerToUpdate
+            self.displayPurchaseHistoryLink = displayPurchaseHistoryLink
+            self.shouldWarnCustomersAboutMultipleSubscriptions = shouldWarnCustomersAboutMultipleSubscriptions
         }
 
     }
@@ -506,8 +729,15 @@ extension CustomerCenterConfigData.HelpPath {
         } else {
             self.detail = nil
         }
-    }
 
+        if let window = response.refundWindow {
+            self.refundWindowDuration = window == "forever"
+                ? RefundWindowDuration.forever
+                : ISODurationFormatter.parse(from: window).map { .duration($0) }
+        } else {
+            self.refundWindowDuration = nil
+        }
+    }
 }
 
 extension CustomerCenterConfigData.HelpPath.PromotionalOffer {
@@ -518,6 +748,17 @@ extension CustomerCenterConfigData.HelpPath.PromotionalOffer {
         self.title = response.title
         self.subtitle = response.subtitle
         self.productMapping = response.productMapping
+        self.crossProductPromotions = response.crossProductPromotions?.mapValues { CrossProductPromotion(from: $0) }
+            ?? [:]
+    }
+
+}
+
+extension CustomerCenterConfigData.HelpPath.PromotionalOffer.CrossProductPromotion {
+
+    init(from response: CustomerCenterConfigResponse.HelpPath.PromotionalOffer.CrossProductPromotion) {
+        self.storeOfferIdentifier = response.storeOfferIdentifier
+        self.targetProductId = response.targetProductId
     }
 
 }
@@ -550,6 +791,12 @@ extension CustomerCenterConfigData.Support {
 
     init(from response: CustomerCenterConfigResponse.Support) {
         self.email = response.email
+        self.shouldWarnCustomerToUpdate = response.shouldWarnCustomerToUpdate ?? true
+        self.displayPurchaseHistoryLink = response.displayPurchaseHistoryLink ?? false
+        self.shouldWarnCustomersAboutMultipleSubscriptions = response.shouldWarnCustomersAboutMultipleSubscriptions
+            ?? false
     }
 
 }
+
+extension CustomerCenterConfigData.HelpPath.PathType: Sendable, Codable {}

@@ -27,7 +27,7 @@ public typealias SK2ProductDiscount = StoreKit.Product.SubscriptionOffer
 /// and provides access to their properties.
 /// Information about a subscription offer that you configured in App Store Connect.
 @objc(RCStoreProductDiscount)
-public final class StoreProductDiscount: NSObject, StoreProductDiscountType {
+public final class StoreProductDiscount: NSObject {
 
     /// The payment mode for a `StoreProductDiscount`
     /// Indicates how the product discount price is charged.
@@ -115,6 +115,24 @@ public final class StoreProductDiscount: NSObject, StoreProductDiscountType {
 
 }
 
+@_spi(Internal) extension StoreProductDiscount: StoreProductDiscountType { }
+
+extension StoreProductDiscount {
+    // swiftlint:disable:next missing_docs
+    @_spi(Internal) public func promotionalOffer(withSignedDataIdentifier identifier: String,
+                                                 keyIdentifier: String,
+                                                 nonce: UUID,
+                                                 signature: String,
+                                                 timestamp: Int) -> PromotionalOffer {
+        let signedData = PromotionalOffer.SignedData(identifier: identifier,
+                                                     keyIdentifier: keyIdentifier,
+                                                     nonce: nonce,
+                                                     signature: signature,
+                                                     timestamp: timestamp)
+        return PromotionalOffer(discount: self, signedData: signedData)
+    }
+}
+
 extension StoreProductDiscount: Sendable {}
 extension StoreProductDiscount.PaymentMode: Sendable {}
 extension StoreProductDiscount.DiscountType: Sendable {}
@@ -157,7 +175,7 @@ extension StoreProductDiscount {
 }
 
 /// The details of an introductory offer or a promotional offer for an auto-renewable subscription.
-internal protocol StoreProductDiscountType: Sendable {
+@_spi(Internal) public protocol StoreProductDiscountType: Sendable {
 
     // Note: this is only `nil` for SK1 products.
     // It can become `String` once it's not longer supported.
@@ -296,5 +314,37 @@ extension StoreProductDiscount: Identifiable {
 
     /// The stable identity of the entity associated with this instance.
     public var id: Data { return Data(discount: self) }
+
+}
+
+public extension StoreProductDiscount {
+
+    /// Calculates the approximate price of this subscription product per day.
+    /// - Returns: `nil` if the product is not a subscription.
+    @available(iOS 11.2, macOS 10.13.2, tvOS 11.2, watchOS 6.2, *)
+    @objc var pricePerDay: NSDecimalNumber? {
+        return self.subscriptionPeriod.pricePerDay(withTotalPrice: self.price) as NSDecimalNumber?
+    }
+
+    /// Calculates the approximate price of this subscription product per week.
+    /// - Returns: `nil` if the product is not a subscription.
+    @available(iOS 11.2, macOS 10.13.2, tvOS 11.2, watchOS 6.2, *)
+    @objc var pricePerWeek: NSDecimalNumber? {
+        return self.subscriptionPeriod.pricePerWeek(withTotalPrice: self.price) as NSDecimalNumber?
+    }
+
+    /// Calculates the approximate price of this subscription product per month.
+    /// - Returns: `nil` if the product is not a subscription.
+    @available(iOS 11.2, macOS 10.13.2, tvOS 11.2, watchOS 6.2, *)
+    @objc var pricePerMonth: NSDecimalNumber? {
+        return self.subscriptionPeriod.pricePerMonth(withTotalPrice: self.price) as NSDecimalNumber?
+    }
+
+    /// Calculates the approximate price of this subscription product per year.
+    /// - Returns: `nil` if the product is not a subscription.
+    @available(iOS 11.2, macOS 10.13.2, tvOS 11.2, watchOS 6.2, *)
+    @objc var pricePerYear: NSDecimalNumber? {
+        return self.subscriptionPeriod.pricePerYear(withTotalPrice: self.price) as NSDecimalNumber?
+    }
 
 }

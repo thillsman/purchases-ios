@@ -20,6 +20,11 @@ class BaseCustomerInfoManagerTests: TestCase {
 
     var customerInfoManager: CustomerInfoManager!
 
+    static let eventTimestamp1: Date = .init(timeIntervalSince1970: 1694029328)
+    static let eventTimestamp2: Date = .init(timeIntervalSince1970: 1694032321)
+    var mockDateProvider = MockDateProvider(stubbedNow: eventTimestamp1,
+                                            subsequentNows: eventTimestamp2)
+
     fileprivate var customerInfoManagerChangesCallCount = 0
     fileprivate var customerInfoManagerLastCustomerInfoChange: (old: CustomerInfo?, new: CustomerInfo)?
 
@@ -218,7 +223,9 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
         customerInfoManager.cache(customerInfo: mockCustomerInfo, appUserID: Self.appUserID)
 
         let receivedCustomerInfo = waitUntilValue { completed in
-            self.customerInfoManager.customerInfo(appUserID: Self.appUserID, fetchPolicy: .default) { result in
+            self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                  fetchPolicy: .default,
+                                                  trackDiagnostics: false) { result in
                 completed(result.value)
             }
         }
@@ -234,7 +241,9 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
         self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
 
         let info = waitUntilValue { completed in
-            self.customerInfoManager.customerInfo(appUserID: Self.appUserID, fetchPolicy: .default) {
+            self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                  fetchPolicy: .default,
+                                                  trackDiagnostics: false) {
                 completed($0.value)
             }
         }
@@ -248,7 +257,9 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
         let appUserID = "myUser"
 
         waitUntil { completed in
-            self.customerInfoManager.customerInfo(appUserID: appUserID, fetchPolicy: .default) { _ in
+            self.customerInfoManager.customerInfo(appUserID: appUserID,
+                                                  fetchPolicy: .default,
+                                                  trackDiagnostics: false) { _ in
                 // checking here to ensure that completion gets called from the backend call
                 expect(self.mockBackend.invokedGetSubscriberDataCount) == 1
 
@@ -264,11 +275,81 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
                 "original_app_user_id": Self.appUserID,
                 "first_seen": "2019-06-17T16:05:33Z",
                 "subscriptions": [
-                    "product_a": ["expires_date": "2098-05-27T06:24:50Z", "period_type": "normal"],
-                    "Product_B": ["expires_date": "2098-05-27T06:24:50Z", "period_type": "normal"],
-                    "ProductC": ["expires_date": "2098-05-27T06:24:50Z", "period_type": "normal"],
-                    "Pro": ["expires_date": "2098-05-27T06:24:50Z", "period_type": "normal"],
-                    "ProductD": ["expires_date": "2018-05-27T06:24:50Z", "period_type": "normal"]
+                    "product_a": [
+                        "purchase_date": "2098-04-27T06:24:50Z",
+                        "expires_date": "2098-05-27T06:24:50Z",
+                        "period_type": "normal",
+                        "billing_issues_detected_at": nil,
+                        "grace_period_expires_date": nil,
+                        "is_sandbox": true,
+                        "original_purchase_date": "2022-04-12T00:03:28Z",
+                        "store": "app_store",
+                        "unsubscribe_detected_at": nil,
+                        "ownership_type": "PURCHASED",
+                        "refunded_at": nil,
+                        "store_transaction_id": "1",
+                        "auto_resume_date": nil
+                    ],
+                    "Product_B": [
+                        "purchase_date": "2022-04-12T00:03:28Z",
+                        "expires_date": "2098-05-27T06:24:50Z",
+                        "period_type": "normal",
+                        "billing_issues_detected_at": "2098-05-18T06:24:50Z",
+                        "grace_period_expires_date": nil,
+                        "is_sandbox": true,
+                        "original_purchase_date": "2022-04-12T00:03:28Z",
+                        "store": "app_store",
+                        "unsubscribe_detected_at": "2098-05-14T06:24:50Z",
+                        "ownership_type": "PURCHASED",
+                        "refunded_at": "2098-05-16T06:24:50Z",
+                        "store_transaction_id": "1",
+                        "auto_resume_date": nil
+                    ],
+                    "ProductC": [
+                        "purchase_date": "2098-04-27T06:24:50Z",
+                        "expires_date": "2098-05-27T06:24:50Z",
+                        "period_type": "normal",
+                        "billing_issues_detected_at": nil,
+                        "grace_period_expires_date": nil,
+                        "is_sandbox": true,
+                        "original_purchase_date": "2022-04-12T00:03:28Z",
+                        "store": "app_store",
+                        "unsubscribe_detected_at": nil,
+                        "ownership_type": "PURCHASED",
+                        "refunded_at": nil,
+                        "store_transaction_id": "1",
+                        "auto_resume_date": nil
+                    ],
+                    "Pro": [
+                        "purchase_date": "2098-04-27T06:24:50Z",
+                        "expires_date": "2098-05-27T06:24:50Z",
+                        "period_type": "normal",
+                        "billing_issues_detected_at": nil,
+                        "grace_period_expires_date": nil,
+                        "is_sandbox": true,
+                        "original_purchase_date": "2022-04-12T00:03:28Z",
+                        "store": "app_store",
+                        "unsubscribe_detected_at": nil,
+                        "ownership_type": "PURCHASED",
+                        "refunded_at": nil,
+                        "store_transaction_id": "1",
+                        "auto_resume_date": nil
+                    ],
+                    "ProductD": [
+                        "purchase_date": "2018-04-27T06:24:50Z",
+                        "expires_date": "2018-05-27T06:24:50Z",
+                        "period_type": "normal",
+                        "billing_issues_detected_at": nil,
+                        "grace_period_expires_date": nil,
+                        "is_sandbox": true,
+                        "original_purchase_date": "2022-04-12T00:03:28Z",
+                        "store": "app_store",
+                        "unsubscribe_detected_at": nil,
+                        "ownership_type": "PURCHASED",
+                        "refunded_at": nil,
+                        "store_transaction_id": "1",
+                        "auto_resume_date": nil
+                    ]
                 ]  as [String: Any],
                 "other_purchases": [:] as [String: Any]
             ]  as [String: Any]
@@ -289,8 +370,8 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
         expect(receivedCustomerInfo) == info
     }
 
-    func testCachedCustomerInfoReturnsNilIfNotAvailable() {
-        let receivedCustomerInfo = customerInfoManager.cachedCustomerInfo(appUserID: "myUser")
+    func testCachedCustomerInfoReturnsNilIfNotAvailable() throws {
+        let receivedCustomerInfo = try customerInfoManager.cachedCustomerInfo(appUserID: "myUser")
         expect(receivedCustomerInfo).to(beNil())
     }
 
@@ -300,7 +381,23 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
             "subscriber": [
                 "original_app_user_id": Self.appUserID,
                 "first_seen": "2019-06-17T16:05:33Z",
-                "subscriptions": ["product_a": ["expires_date": "2018-05-27T06:24:50Z", "period_type": "normal"]],
+                "subscriptions": [
+                    "product_a": [
+                        "purchase_date": "2018-04-27T06:24:50Z",
+                        "expires_date": "2018-05-27T06:24:50Z",
+                        "period_type": "normal",
+                        "billing_issues_detected_at": nil,
+                        "grace_period_expires_date": nil,
+                        "is_sandbox": true,
+                        "original_purchase_date": "2022-04-12T00:03:28Z",
+                        "store": "app_store",
+                        "unsubscribe_detected_at": nil,
+                        "ownership_type": "PURCHASED",
+                        "refunded_at": nil,
+                        "store_transaction_id": "1",
+                        "auto_resume_date": nil
+                    ]
+                ],
                 "other_purchases": [:] as [String: Any]
             ]  as [String: Any]
         ])
@@ -308,17 +405,21 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
         let object = try info.jsonEncodedData
         mockDeviceCache.cachedCustomerInfo["firstUser"] = object
 
-        let receivedCustomerInfo = customerInfoManager.cachedCustomerInfo(appUserID: "secondUser")
+        let receivedCustomerInfo = try customerInfoManager.cachedCustomerInfo(appUserID: "secondUser")
         expect(receivedCustomerInfo).to(beNil())
     }
 
-    func testCachedCustomerInfoReturnsNilIfCantBeParsed() {
+    func testCachedCustomerInfoReturnsNilIfCantBeParsed() throws {
         let appUserID = "myUser"
 
         mockDeviceCache.cachedCustomerInfo[appUserID] = Data()
 
-        let receivedCustomerInfo = customerInfoManager.cachedCustomerInfo(appUserID: appUserID)
-        expect(receivedCustomerInfo).to(beNil())
+        do {
+            _ = try customerInfoManager.cachedCustomerInfo(appUserID: appUserID)
+            fail("Expected to fail")
+        } catch {
+            expect(error as? DecodingError).toNot(beNil())
+        }
     }
 
     func testCachedCustomerInfoReturnsNilIfDifferentSchema() throws {
@@ -329,7 +430,23 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
             "subscriber": [
                 "original_app_user_id": Self.appUserID,
                 "first_seen": "2019-06-17T16:05:33Z",
-                "subscriptions": ["product_a": ["expires_date": "2018-05-27T06:24:50Z", "period_type": "normal"]],
+                "subscriptions": [
+                    "product_a": [
+                        "purchase_date": "2018-04-27T06:24:50Z",
+                        "expires_date": "2018-05-27T06:24:50Z",
+                        "period_type": "normal",
+                        "billing_issues_detected_at": nil,
+                        "grace_period_expires_date": nil,
+                        "is_sandbox": true,
+                        "original_purchase_date": "2022-04-12T00:03:28Z",
+                        "store": "app_store",
+                        "unsubscribe_detected_at": nil,
+                        "ownership_type": "PURCHASED",
+                        "refunded_at": nil,
+                        "store_transaction_id": "1",
+                        "auto_resume_date": nil
+                    ]
+                ],
                 "other_purchases": [:] as [String: Any]
             ] as [String: Any]
         ]
@@ -338,8 +455,16 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
         let appUserID = "myUser"
         mockDeviceCache.cachedCustomerInfo[appUserID] = object
 
-        let receivedCustomerInfo = customerInfoManager.cachedCustomerInfo(appUserID: appUserID)
-        expect(receivedCustomerInfo).to(beNil())
+        do {
+            _ = try customerInfoManager.cachedCustomerInfo(appUserID: appUserID)
+            fail("Expected to fail")
+        } catch {
+            let purchasesError = try XCTUnwrap(error as? PurchasesError)
+            let expectedMessage = Strings.customerInfo.cached_customerinfo_incompatible_schema.description
+            let expectedError = ErrorUtils.customerInfoError(withMessage: expectedMessage)
+            expect(purchasesError.error) == expectedError.error
+            expect(purchasesError.localizedDescription) == expectedError.localizedDescription
+        }
     }
 
     func testCachedCustomerInfoParsesVersion2() throws {
@@ -350,7 +475,23 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
             "subscriber": [
                 "original_app_user_id": Self.appUserID,
                 "first_seen": "2019-06-17T16:05:33Z",
-                "subscriptions": ["product_a": ["expires_date": "2018-05-27T06:24:50Z", "period_type": "normal"]],
+                "subscriptions": [
+                    "product_a": [
+                        "purchase_date": "2018-04-27T06:24:50Z",
+                        "expires_date": "2018-05-27T06:24:50Z",
+                        "period_type": "normal",
+                        "billing_issues_detected_at": nil,
+                        "grace_period_expires_date": nil,
+                        "is_sandbox": true,
+                        "original_purchase_date": "2022-04-12T00:03:28Z",
+                        "store": "app_store",
+                        "unsubscribe_detected_at": nil,
+                        "ownership_type": "PURCHASED",
+                        "refunded_at": nil,
+                        "store_transaction_id": "1",
+                        "auto_resume_date": nil
+                    ]
+                ],
                 "other_purchases": [:] as [String: Any]
             ]  as [String: Any]
         ]
@@ -359,7 +500,7 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
         let appUserID = "myUser"
         self.mockDeviceCache.cachedCustomerInfo[appUserID] = object
 
-        let receivedCustomerInfo = self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)
+        let receivedCustomerInfo = try self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)
         expect(receivedCustomerInfo).toNot(beNil())
     }
 
@@ -367,7 +508,7 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
         let appUserID = "myUser"
         customerInfoManager.cache(customerInfo: mockCustomerInfo, appUserID: appUserID)
 
-        expect(self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)) == mockCustomerInfo
+        expect(try self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)) == mockCustomerInfo
         expect(self.mockDeviceCache.cacheCustomerInfoCount) == 1
     }
 
@@ -377,7 +518,7 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
 
         self.customerInfoManager.cache(customerInfo: info, appUserID: appUserID)
 
-        expect(self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)) == info
+        expect(try self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)) == info
         expect(self.mockDeviceCache.cacheCustomerInfoCount) == 1
     }
 
@@ -387,7 +528,7 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
 
         self.customerInfoManager.cache(customerInfo: info, appUserID: appUserID)
 
-        expect(self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)) == info
+        expect(try self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)) == info
         expect(self.mockDeviceCache.cacheCustomerInfoCount) == 1
     }
 
@@ -397,7 +538,7 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
 
         self.customerInfoManager.cache(customerInfo: info, appUserID: appUserID)
 
-        expect(self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)) == info
+        expect(try self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)) == info
         expect(self.mockDeviceCache.cacheCustomerInfoCount) == 1
     }
 
@@ -407,7 +548,7 @@ class CustomerInfoManagerTests: BaseCustomerInfoManagerTests {
 
         self.customerInfoManager.cache(customerInfo: info, appUserID: appUserID)
 
-        expect(self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)).to(beNil())
+        expect(try self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID)).to(beNil())
         expect(self.mockDeviceCache.cacheCustomerInfoCount) == 0
         expect(self.mockDeviceCache.invokedClearCustomerInfoCache) == true
 
@@ -502,6 +643,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
         self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
 
         let result = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                     trackDiagnostics: false,
                                                                      fetchPolicy: .fromCacheOnly)
 
         expect(result) == self.mockCustomerInfo
@@ -513,6 +655,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
         self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
 
         let result = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                     trackDiagnostics: false,
                                                                      fetchPolicy: .fromCacheOnly)
 
         expect(result) == self.mockCustomerInfo
@@ -522,6 +665,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
     func testCustomerInfoFromCacheOnlyThrowsWhenNotAvailable() async throws {
         do {
             _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: false,
                                                                 fetchPolicy: .fromCacheOnly)
 
             fail("Expected error")
@@ -540,6 +684,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
         self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
 
         let result = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                     trackDiagnostics: false,
                                                                      fetchPolicy: .cachedOrFetched)
         expect(result) == self.mockCustomerInfo
         expect(self.mockBackend.invokedGetSubscriberData) == false
@@ -552,6 +697,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
         self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
 
         let result = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                     trackDiagnostics: false,
                                                                      fetchPolicy: .cachedOrFetched)
 
         expect(result) == self.mockCustomerInfo
@@ -562,6 +708,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
         self.mockBackend.stubbedGetCustomerInfoResult = .success(self.mockRefreshedCustomerInfo)
 
         let result = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                     trackDiagnostics: false,
                                                                      fetchPolicy: .cachedOrFetched)
 
         expect(self.mockBackend.invokedGetSubscriberDataCount) == 1
@@ -575,6 +722,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
 
         do {
             _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: false,
                                                                 fetchPolicy: .cachedOrFetched)
 
             fail("Expected error")
@@ -589,6 +737,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
         self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
 
         let result = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                     trackDiagnostics: false,
                                                                      fetchPolicy: .notStaleCachedOrFetched)
         expect(result) == self.mockCustomerInfo
         expect(self.mockBackend.invokedGetSubscriberData) == false
@@ -601,6 +750,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
         self.mockBackend.stubbedGetCustomerInfoResult = .success(self.mockRefreshedCustomerInfo)
 
         let result = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                     trackDiagnostics: false,
                                                                      fetchPolicy: .notStaleCachedOrFetched)
 
         expect(self.mockBackend.invokedGetSubscriberDataCount) == 1
@@ -614,6 +764,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
         self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
 
         let result = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                     trackDiagnostics: false,
                                                                      fetchPolicy: .notStaleCachedOrFetched)
 
         expect(result) == self.mockRefreshedCustomerInfo
@@ -624,6 +775,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
         self.mockBackend.stubbedGetCustomerInfoResult = .success(self.mockRefreshedCustomerInfo)
 
         let result = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                     trackDiagnostics: false,
                                                                      fetchPolicy: .notStaleCachedOrFetched)
 
         expect(self.mockBackend.invokedGetSubscriberDataCount) == 1
@@ -639,6 +791,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
 
         do {
             _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: false,
                                                                 fetchPolicy: .notStaleCachedOrFetched)
 
             fail("Expected error")
@@ -655,6 +808,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
         self.mockBackend.stubbedGetCustomerInfoResult = .success(self.mockRefreshedCustomerInfo)
 
         let result = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                     trackDiagnostics: false,
                                                                      fetchPolicy: .fetchCurrent)
         expect(result) == self.mockRefreshedCustomerInfo
         expect(self.mockBackend.invokedGetSubscriberDataCount) == 1
@@ -667,6 +821,7 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
 
         do {
             _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: false,
                                                                 fetchPolicy: .fetchCurrent)
         } catch BackendError.networkError {
             // Expected error
@@ -683,7 +838,9 @@ class CustomerInfoManagerGetCustomerInfoTests: BaseCustomerInfoManagerTests {
             // Re-fetch customer info when it changes.
             // This isn't necessary since it's passed as part of the change,
             // but it should not deadlock.
-            manager.customerInfo(appUserID: Self.appUserID, fetchPolicy: .fetchCurrent) { _ in }
+            manager.customerInfo(appUserID: Self.appUserID,
+                                 fetchPolicy: .fetchCurrent,
+                                 trackDiagnostics: false) { _ in }
             expectation.fulfill()
         }
         defer { removeObservation() }
@@ -730,6 +887,497 @@ class CustomerInfoVerificationTrackingTests: BaseCustomerInfoManagerTests {
 
         self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: "myUser")
         expect(self.mockDiagnosticsTracker.trackedCustomerInfo.value.count).toEventually(equal(0))
+    }
+
+}
+
+@available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
+class GetCustomerInfoTrackingTests: BaseCustomerInfoManagerTests {
+
+    private var mockDiagnosticsTracker: MockDiagnosticsTracker!
+
+    private var mockRefreshedCustomerInfo: CustomerInfo {
+        get throws {
+            return try CustomerInfo(data: [
+                "request_date": "2019-12-21T02:40:36Z",
+                "subscriber": [
+                    "original_app_user_id": Self.appUserID,
+                    "first_seen": "2020-06-17T16:05:33Z",
+                    "subscriptions": [:] as [String: Any],
+                    "other_purchases": [:] as [String: Any],
+                    "original_application_version": "1.0"
+                ] as [String: Any]
+            ])
+        }
+    }
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+
+        try AvailabilityChecks.iOS15APIAvailableOrSkipTest()
+
+        self.mockDiagnosticsTracker = MockDiagnosticsTracker()
+
+        self.customerInfoManager = CustomerInfoManager(
+            offlineEntitlementsManager: self.mockOfflineEntitlementsManager,
+            operationDispatcher: self.mockOperationDispatcher,
+            deviceCache: self.mockDeviceCache,
+            backend: self.mockBackend,
+            transactionFetcher: self.mockTransationFetcher,
+            transactionPoster: self.mockTransactionPoster,
+            systemInfo: self.mockSystemInfo,
+            diagnosticsTracker: self.mockDiagnosticsTracker,
+            dateProvider: self.mockDateProvider
+        )
+    }
+
+    // MARK: - CacheFetchPolicy.fromCacheOnly
+
+    func testTrackDiagnosticsGetCustomerInfoFromCacheOnlyWhenCachedCustomerInfo() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: "myUser")
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: "myUser",
+                                                            trackDiagnostics: true,
+                                                            fetchPolicy: .fromCacheOnly)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+        let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+        expect(params.cacheFetchPolicy) == .fromCacheOnly
+        expect(params.verificationResult) == self.mockCustomerInfo.entitlements.verification
+        expect(params.hadUnsyncedPurchasesBefore) == nil
+        expect(params.errorMessage) == nil
+        expect(params.errorCode) == nil
+        expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+    }
+
+    func testTrackDiagnosticsGetCustomerInfoFromCacheOnlyWhenNoCachedCustomerInfo() async throws {
+        do {
+            _ = try await self.customerInfoManager.customerInfo(appUserID: "myUser",
+                                                                trackDiagnostics: true,
+                                                                fetchPolicy: .fromCacheOnly)
+            fail("Expected to fail, as no cached CustomerInfo exists")
+        } catch {
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+            let expectedError = BackendError.missingCachedCustomerInfo().asPurchasesError
+            let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+            expect(params.cacheFetchPolicy) == .fromCacheOnly
+            expect(params.verificationResult) == nil
+            expect(params.hadUnsyncedPurchasesBefore) == nil
+            expect(params.errorMessage) == expectedError.localizedDescription
+            expect(params.errorCode) == expectedError.errorCode
+            expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+        }
+    }
+
+    func testNotTrackDiagnosticsGetCustomerInfoFromCacheOnlyWhenCachedCustomerInfo() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: "myUser")
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: "myUser",
+                                                            trackDiagnostics: false,
+                                                            fetchPolicy: .fromCacheOnly)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 0
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(beEmpty())
+    }
+
+    // MARK: - CacheFetchPolicy.fetchCurrent
+
+    func testTrackDiagnosticsGetCustomerInfoFetchCurrentPolicy() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = false
+        self.mockBackend.stubbedGetCustomerInfoResult = .success(try self.mockRefreshedCustomerInfo)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: true,
+                                                            fetchPolicy: .fetchCurrent)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+        let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+        expect(params.cacheFetchPolicy) == .fetchCurrent
+        expect(params.verificationResult) == self.mockCustomerInfo.entitlements.verification
+        expect(params.hadUnsyncedPurchasesBefore) == false
+        expect(params.errorMessage) == nil
+        expect(params.errorCode) == nil
+        expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+    }
+
+    func testTrackDiagnosticsGetCustomerInfoFetchCurrentPolicyWithUnfinishedVerifiedTransactions() async throws {
+        self.mockTransationFetcher.stubbedUnfinishedTransactions = [Self.createTransaction()]
+
+        self.mockTransactionPoster.stubbedHandlePurchasedTransactionResult.value = .success(self.mockCustomerInfo)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: true,
+                                                            fetchPolicy: .fetchCurrent)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+        let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+        expect(params.cacheFetchPolicy) == .fetchCurrent
+        expect(params.verificationResult) == self.mockCustomerInfo.entitlements.verification
+        expect(params.hadUnsyncedPurchasesBefore) == true
+        expect(params.errorMessage) == nil
+        expect(params.errorCode) == nil
+        expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+    }
+
+    func testTrackDiagnosticsGetCustomerInfoFetchCurrentPolicyWhenFailure() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = false
+
+        let backendError = BackendError.networkError(.errorResponse(.defaultResponse, .internalServerError))
+        self.mockBackend.stubbedGetCustomerInfoResult = .failure(backendError)
+
+        do {
+            _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: true,
+                                                                fetchPolicy: .fetchCurrent)
+            fail("Expected to fail")
+        } catch {
+
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+            let expectedError = backendError.asPurchasesError
+            let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+            expect(params.cacheFetchPolicy) == .fetchCurrent
+            expect(params.verificationResult) == nil
+            expect(params.hadUnsyncedPurchasesBefore) == false
+            expect(params.errorMessage) == expectedError.localizedDescription
+            expect(params.errorCode) == expectedError.errorCode
+            expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+        }
+    }
+
+    func testTrackDiagnosticsGetCustomerInfoFetchCurrentPolicyWithUnfinishedTransactionsWhenFailure() async throws {
+        self.mockTransationFetcher.stubbedUnfinishedTransactions = [Self.createTransaction()]
+
+        let backendError = BackendError.missingReceiptFile(URL(string: "file://receipt"))
+        self.mockTransactionPoster.stubbedHandlePurchasedTransactionResult.value = .failure(backendError)
+
+        do {
+            _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: true,
+                                                                fetchPolicy: .fetchCurrent)
+            fail("Expected to fail")
+        } catch {
+
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+            let expectedError = backendError.asPurchasesError
+            let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+            expect(params.cacheFetchPolicy) == .fetchCurrent
+            expect(params.verificationResult) == nil
+            expect(params.hadUnsyncedPurchasesBefore) == true
+            expect(params.errorMessage) == expectedError.localizedDescription
+            expect(params.errorCode) == expectedError.errorCode
+            expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+        }
+    }
+
+    func testNotTrackDiagnosticsGetCustomerInfoFetchCurrentPolicy() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = false
+        self.mockBackend.stubbedGetCustomerInfoResult = .success(try self.mockRefreshedCustomerInfo)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: false,
+                                                            fetchPolicy: .fetchCurrent)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 0
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(beEmpty())
+    }
+
+    // MARK: - CacheFetchPolicy.notStaleCachedOrFetched
+
+    func testTrackDiagnosticsGetCustomerInfoWithNotStaleCachedOrFetchedPolicyWhenNotStale() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = false
+
+        let backendError = BackendError.networkError(.errorResponse(.defaultResponse, .internalServerError))
+        self.mockBackend.stubbedGetCustomerInfoResult = .failure(backendError)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: true,
+                                                            fetchPolicy: .notStaleCachedOrFetched)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+        let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+        expect(params.cacheFetchPolicy) == .notStaleCachedOrFetched
+        expect(params.verificationResult) == self.mockCustomerInfo.entitlements.verification
+        expect(params.hadUnsyncedPurchasesBefore) == nil
+        expect(params.errorMessage) == nil
+        expect(params.errorCode) == nil
+        expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+    }
+
+    func testNotTrackDiagnosticsGetCustomerInfoWithNotStaleCachedOrFetchedPolicyWhenNotStale() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = false
+
+        let backendError = BackendError.networkError(.errorResponse(.defaultResponse, .internalServerError))
+        self.mockBackend.stubbedGetCustomerInfoResult = .failure(backendError)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: false,
+                                                            fetchPolicy: .notStaleCachedOrFetched)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 0
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(beEmpty())
+    }
+
+    func testTrackDiagnosticsGetCustomerInfoWithNotStaleCachedOrFetchedPolicyWhenStale() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = true
+
+        self.mockBackend.stubbedGetCustomerInfoResult = .success(try self.mockRefreshedCustomerInfo)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: true,
+                                                            fetchPolicy: .notStaleCachedOrFetched)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+        let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+        expect(params.cacheFetchPolicy) == .notStaleCachedOrFetched
+        expect(params.verificationResult) == self.mockCustomerInfo.entitlements.verification
+        expect(params.hadUnsyncedPurchasesBefore) == false
+        expect(params.errorMessage) == nil
+        expect(params.errorCode) == nil
+        expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+    }
+
+    func testTrackDiagnosticsGetCustomerInfoWithNotStaleCachedOrFetchedPolicyWhenNoCache() async throws {
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = false
+
+        self.mockBackend.stubbedGetCustomerInfoResult = .success(try self.mockRefreshedCustomerInfo)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: true,
+                                                            fetchPolicy: .notStaleCachedOrFetched)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+        let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+        expect(params.cacheFetchPolicy) == .notStaleCachedOrFetched
+        expect(params.verificationResult) == self.mockCustomerInfo.entitlements.verification
+        expect(params.hadUnsyncedPurchasesBefore) == false
+        expect(params.errorMessage) == nil
+        expect(params.errorCode) == nil
+        expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+    }
+
+    func testTrackDiagnosticsGetCustomerInfoWithNotStaleCachedOrFetchedPolicyWhenStaleAndFailure() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = true
+
+        let backendError = BackendError.networkError(.errorResponse(.defaultResponse, .internalServerError))
+        self.mockBackend.stubbedGetCustomerInfoResult = .failure(backendError)
+
+        do {
+            _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: true,
+                                                                fetchPolicy: .notStaleCachedOrFetched)
+            fail("Expected to fail, as cached CustomerInfo is stale")
+        } catch {
+
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+            let expectedError = backendError.asPurchasesError
+            let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+            expect(params.cacheFetchPolicy) == .notStaleCachedOrFetched
+            expect(params.verificationResult) == nil
+            expect(params.hadUnsyncedPurchasesBefore) == false
+            expect(params.errorMessage) == expectedError.localizedDescription
+            expect(params.errorCode) == expectedError.errorCode
+            expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+        }
+    }
+
+    func testTrackDiagnosticsGetCustomerInfoWithNotStaleCachedOrFetchedPolicyWhenNoCacheAndFailure() async throws {
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = true
+
+        let backendError = BackendError.networkError(.errorResponse(.defaultResponse, .internalServerError))
+        self.mockBackend.stubbedGetCustomerInfoResult = .failure(backendError)
+
+        do {
+            _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: true,
+                                                                fetchPolicy: .notStaleCachedOrFetched)
+            fail("Expected to fail, as there's no cached CustomerInfo")
+        } catch {
+
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+            let expectedError = backendError.asPurchasesError
+            let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+            expect(params.cacheFetchPolicy) == .notStaleCachedOrFetched
+            expect(params.verificationResult) == nil
+            expect(params.hadUnsyncedPurchasesBefore) == false
+            expect(params.errorMessage) == expectedError.localizedDescription
+            expect(params.errorCode) == expectedError.errorCode
+            expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+        }
+    }
+
+    func testNotTrackDiagnosticsGetCustomerInfoWithNotStaleCachedOrFetchedPolicyWhenStale() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = true
+
+        let backendError = BackendError.networkError(.errorResponse(.defaultResponse, .internalServerError))
+        self.mockBackend.stubbedGetCustomerInfoResult = .failure(backendError)
+
+        do {
+            _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: false,
+                                                                fetchPolicy: .notStaleCachedOrFetched)
+            fail("Expected to fail, as cached CustomerInfo is stale")
+        } catch {
+
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 0
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(beEmpty())
+        }
+    }
+
+    // MARK: - CacheFetchPolicy.cachedOrFetched
+
+    func testTrackDiagnosticsGetCustomerInfoWithCachedOrFetchedPolicyWhenCache() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = true
+
+        let backendError = BackendError.networkError(.errorResponse(.defaultResponse, .internalServerError))
+        self.mockBackend.stubbedGetCustomerInfoResult = .failure(backendError)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: true,
+                                                            fetchPolicy: .cachedOrFetched)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+        let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+        expect(params.cacheFetchPolicy) == .cachedOrFetched
+        expect(params.verificationResult) == self.mockCustomerInfo.entitlements.verification
+        expect(params.hadUnsyncedPurchasesBefore) == nil
+        expect(params.errorMessage) == nil
+        expect(params.errorCode) == nil
+        expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+    }
+
+    func testNotTrackDiagnosticsGetCustomerInfoWithCachedOrFetchedPolicyWhenCacheExists() async throws {
+        self.customerInfoManager.cache(customerInfo: self.mockCustomerInfo, appUserID: Self.appUserID)
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = true
+
+        let backendError = BackendError.networkError(.errorResponse(.defaultResponse, .internalServerError))
+        self.mockBackend.stubbedGetCustomerInfoResult = .failure(backendError)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: false,
+                                                            fetchPolicy: .cachedOrFetched)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 0
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(beEmpty())
+    }
+
+    func testTrackDiagnosticsGetCustomerInfoWithCachedOrFetchedPolicyWhenNoCache() async throws {
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = false
+
+        self.mockBackend.stubbedGetCustomerInfoResult = .success(try self.mockRefreshedCustomerInfo)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: true,
+                                                            fetchPolicy: .cachedOrFetched)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+        let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+        expect(params.cacheFetchPolicy) == .cachedOrFetched
+        expect(params.verificationResult) == self.mockCustomerInfo.entitlements.verification
+        expect(params.hadUnsyncedPurchasesBefore) == false
+        expect(params.errorMessage) == nil
+        expect(params.errorCode) == nil
+        expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+    }
+
+    func testTrackDiagnosticsGetCustomerInfoWithCachedOrFetchedPolicyWhenNoCacheAndFailure() async throws {
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = false
+
+        let backendError = BackendError.networkError(.errorResponse(.defaultResponse, .internalServerError))
+        self.mockBackend.stubbedGetCustomerInfoResult = .failure(backendError)
+
+        do {
+            _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: true,
+                                                                fetchPolicy: .cachedOrFetched)
+            fail("Expected to fail, as there's no cached CustomerInfo")
+        } catch {
+
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 1
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(haveCount(1))
+
+            let expectedError = backendError.asPurchasesError
+            let params = try XCTUnwrap(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value.first)
+            expect(params.cacheFetchPolicy) == .cachedOrFetched
+            expect(params.verificationResult) == nil
+            expect(params.hadUnsyncedPurchasesBefore) == false
+            expect(params.errorMessage) == expectedError.localizedDescription
+            expect(params.errorCode) == expectedError.errorCode
+            expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
+        }
+    }
+
+    func testNotTrackDiagnosticsGetCustomerInfoWithCachedOrFetchedPolicyWhenCacheAndFailure() async throws {
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = true
+
+        self.mockBackend.stubbedGetCustomerInfoResult = .success(try self.mockRefreshedCustomerInfo)
+
+        _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                            trackDiagnostics: false,
+                                                            fetchPolicy: .cachedOrFetched)
+
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 0
+        expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(beEmpty())
+    }
+
+    func testNotTrackDiagnosticsGetCustomerInfoWithCachedOrFetchedPolicyWhenNoCacheAndFailure() async throws {
+        self.mockDeviceCache.stubbedIsCustomerInfoCacheStale = true
+
+        let backendError = BackendError.networkError(.errorResponse(.defaultResponse, .internalServerError))
+        self.mockBackend.stubbedGetCustomerInfoResult = .failure(backendError)
+
+        do {
+            _ = try await self.customerInfoManager.customerInfo(appUserID: Self.appUserID,
+                                                                trackDiagnostics: false,
+                                                                fetchPolicy: .cachedOrFetched)
+            fail("Expected to fail, as there's no cached CustomerInfo")
+        } catch {
+
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoStartedCalls.value) == 0
+            expect(self.mockDiagnosticsTracker.trackedGetCustomerInfoResultParams.value).to(beEmpty())
+        }
+    }
+}
+
+@available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
+private extension GetCustomerInfoTrackingTests {
+
+    static func createTransaction() -> StoreTransaction {
+        return .init(sk1Transaction: MockTransaction())
     }
 
 }

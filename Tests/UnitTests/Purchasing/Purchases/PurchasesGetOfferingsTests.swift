@@ -127,7 +127,8 @@ class PurchasesGetOfferingsTests: BasePurchasesTests {
             identifier: "offering",
             serverDescription: "",
             paywall: nil,
-            availablePackages: []
+            availablePackages: [],
+            webCheckoutUrl: nil
         )
         let offerings = Offerings(
             offerings: [
@@ -140,7 +141,11 @@ class PurchasesGetOfferingsTests: BasePurchasesTests {
         )
 
         self.systemInfo.stubbedIsApplicationBackgrounded = false
-        self.mockOfferingsManager.stubbedUpdateOfferingsCompletionResult = .success(offerings)
+        self.mockOfferingsManager.stubbedUpdateOfferingsCompletionResult = .success(
+            OfferingsResultData(offerings: offerings,
+                                requestedProductIds: [offering.identifier],
+                                notFoundProductIds: [])
+        )
 
         self.setupPurchases()
 
@@ -151,6 +156,30 @@ class PurchasesGetOfferingsTests: BasePurchasesTests {
 
         expect(self.paywallCache.invokedWarmUpPaywallImagesCache).toEventually(beTrue())
         expect(self.paywallCache.invokedWarmUpPaywallImagesCacheOfferings) == offerings
+    }
+
+    // MARK: - UI preview mode
+
+    func testFirstInitializationInUIPreviewModeDoesGetOfferingsIfAppActive() {
+        self.systemInfo = MockSystemInfo(finishTransactions: true,
+                                         uiPreviewMode: true,
+                                         storeKitVersion: self.storeKitVersion,
+                                         clock: self.clock)
+        self.systemInfo.stubbedIsApplicationBackgrounded = false
+        self.setupPurchases()
+
+        expect(self.mockOfferingsManager.invokedUpdateOfferingsCacheCount).toEventually(equal(1))
+    }
+
+    func testFirstInitializationInUIPreviewModeDoesNotGetOfferingsIfAppBackgrounded() {
+        self.systemInfo = MockSystemInfo(finishTransactions: true,
+                                         uiPreviewMode: true,
+                                         storeKitVersion: self.storeKitVersion,
+                                         clock: self.clock)
+        self.systemInfo.stubbedIsApplicationBackgrounded = true
+        self.setupPurchases()
+
+        expect(self.mockOfferingsManager.invokedUpdateOfferingsCacheCount).toAlways(equal(0))
     }
 
 }

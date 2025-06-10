@@ -41,7 +41,8 @@ class PurchasesOrchestratorSK1Tests: BasePurchasesOrchestratorTests, PurchasesOr
         let package = Package(identifier: "package",
                               packageType: .monthly,
                               storeProduct: .from(product: storeProduct),
-                              offeringIdentifier: "offering")
+                              offeringIdentifier: "offering",
+                              webCheckoutUrl: nil)
 
         let payment = storeKit1Wrapper.payment(with: product)
 
@@ -179,7 +180,8 @@ class PurchasesOrchestratorSK1Tests: BasePurchasesOrchestratorTests, PurchasesOr
         let product = try await self.fetchSk1Product()
         let (transaction, customerInfo, error, userCancelled) = await withCheckedContinuation { continuation in
             orchestrator.purchase(product: StoreProduct(sk1Product: product),
-                                  package: nil) { transaction, customerInfo, error, userCancelled in
+                                  package: nil,
+                                  trackDiagnostics: false) { transaction, customerInfo, error, userCancelled in
                 continuation.resume(returning: (transaction, customerInfo, error, userCancelled))
             }
         }
@@ -201,7 +203,8 @@ class PurchasesOrchestratorSK1Tests: BasePurchasesOrchestratorTests, PurchasesOr
         let package = Package(identifier: "package",
                               packageType: .monthly,
                               storeProduct: .from(product: storeProduct),
-                              offeringIdentifier: "offering")
+                              offeringIdentifier: "offering",
+                              webCheckoutUrl: nil)
 
         let payment = storeKit1Wrapper.payment(with: product)
 
@@ -333,7 +336,6 @@ class PurchasesOrchestratorSK1Tests: BasePurchasesOrchestratorTests, PurchasesOr
 
     // MARK: - PurchaseParams
 
-    #if ENABLE_PURCHASE_PARAMS
     func testPurchaseWithPurchaseParamsPostsReceipt() async throws {
         self.backend.stubbedPostReceiptResult = .success(mockCustomerInfo)
 
@@ -342,14 +344,18 @@ class PurchasesOrchestratorSK1Tests: BasePurchasesOrchestratorTests, PurchasesOr
         let package = Package(identifier: "package",
                               packageType: .monthly,
                               storeProduct: .from(product: storeProduct),
-                              offeringIdentifier: "offering")
+                              offeringIdentifier: "offering",
+                              webCheckoutUrl: nil)
 
-        let params = PurchaseParams.Builder(package: package)
-            .with(metadata: ["key": "value"])
-            .build()
+        var params = PurchaseParams.Builder(package: package)
+
+        #if ENABLE_TRANSACTION_METADATA
+        params = params.with(metadata: ["key": "value"])
+        #endif
 
         _ = await withCheckedContinuation { continuation in
-            orchestrator.purchase(params: params) { transaction, customerInfo, error, userCancelled in
+            orchestrator.purchase(params: params.build(),
+                                  trackDiagnostics: false) { transaction, customerInfo, error, userCancelled in
                 continuation.resume(returning: (transaction, customerInfo, error, userCancelled))
             }
         }
@@ -394,7 +400,8 @@ class PurchasesOrchestratorSK1Tests: BasePurchasesOrchestratorTests, PurchasesOr
                 .build()
 
         let (transaction, customerInfo, error, userCancelled) = await withCheckedContinuation { continuation in
-            orchestrator.purchase(params: params) { transaction, customerInfo, error, userCancelled in
+            orchestrator.purchase(params: params,
+                                  trackDiagnostics: false) { transaction, customerInfo, error, userCancelled in
                 continuation.resume(returning: (transaction, customerInfo, error, userCancelled))
             }
         }
@@ -407,7 +414,6 @@ class PurchasesOrchestratorSK1Tests: BasePurchasesOrchestratorTests, PurchasesOr
         let expectedCustomerInfo: CustomerInfo = .emptyInfo
         expect(customerInfo) == expectedCustomerInfo
     }
-    #endif
 
     // MARK: - Paywalls
 
@@ -803,6 +809,7 @@ class PurchasesOrchestratorSK1TrackingTests: PurchasesOrchestratorSK1Tests {
                                diagnosticsTracker: diagnosticsTracker)
 
         backend.stubbedPostReceiptResult = .success(mockCustomerInfo)
+        systemInfo.stubbedStorefront = MockStorefront(countryCode: "USA")
 
         let product = try await self.fetchSk1Product()
         let payment = storeKit1Wrapper.payment(with: product)
@@ -831,6 +838,14 @@ class PurchasesOrchestratorSK1TrackingTests: PurchasesOrchestratorSK1Tests {
         expect(params.errorMessage).to(beNil())
         expect(params.errorCode).to(beNil())
         expect(params.storeKitErrorDescription).to(beNil())
+        expect(params.productId) == Self.productID
+        expect(params.promotionalOfferId).to(beNil())
+        expect(params.winBackOfferApplied) == false
+        expect(params.purchaseResult).to(beNil())
+        expect(params.storefront) == "USA"
+
+        expect(self.mockDateProvider.invokedNowCount) == 2
+        expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
     }
 
     func testPurchaseWithInvalidPromotionalOfferSignatureTracksError() async throws {
@@ -851,7 +866,7 @@ class PurchasesOrchestratorSK1TrackingTests: PurchasesOrchestratorSK1Tests {
         storeKit1Wrapper.mockTransactionError = NSError(domain: SKErrorDomain,
                                                         code: SKError.Code.invalidSignature.rawValue)
         let product = try await self.fetchSk1Product()
-        let offer = PromotionalOffer.SignedData(identifier: "",
+        let offer = PromotionalOffer.SignedData(identifier: "promotional-offer-id",
                                                 keyIdentifier: "",
                                                 nonce: UUID(),
                                                 signature: "",
@@ -879,6 +894,13 @@ class PurchasesOrchestratorSK1TrackingTests: PurchasesOrchestratorSK1Tests {
         expect(params.errorMessage) == "The operation couldn’t be completed. (SKErrorDomain error 12.)"
         expect(params.errorCode) == ErrorCode.invalidPromotionalOfferError.rawValue
         expect(params.storeKitErrorDescription) == SKError.Code.invalidSignature.trackingDescription
+        expect(params.productId) == Self.productID
+        expect(params.promotionalOfferId) == "promotional-offer-id"
+        expect(params.winBackOfferApplied) == false
+        expect(params.purchaseResult).to(beNil())
+
+        expect(self.mockDateProvider.invokedNowCount) == 2
+        expect(params.responseTime) == Self.eventTimestamp2.timeIntervalSince(Self.eventTimestamp1)
     }
 
     #if compiler(>=6.0)

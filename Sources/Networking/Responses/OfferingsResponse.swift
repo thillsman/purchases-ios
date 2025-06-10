@@ -22,6 +22,7 @@ struct OfferingsResponse {
 
             let identifier: String
             let platformProductIdentifier: String
+            let webCheckoutUrl: URL?
 
         }
 
@@ -32,12 +33,9 @@ struct OfferingsResponse {
         var paywall: PaywallData?
         @DefaultDecodable.EmptyDictionary
         var metadata: [String: AnyDecodable]
-
-        #if PAYWALL_COMPONENTS
-        // components
         var paywallComponents: PaywallComponentsData?
-        #endif
-
+        var draftPaywallComponents: PaywallComponentsData?
+        let webCheckoutUrl: URL?
     }
 
     struct Placements {
@@ -55,6 +53,8 @@ struct OfferingsResponse {
     let offerings: [Offering]
     let placements: Placements?
     let targeting: Targeting?
+    let uiConfig: UIConfig?
+
 }
 
 extension OfferingsResponse {
@@ -68,6 +68,15 @@ extension OfferingsResponse {
         )
     }
 
+    var hasAnyWebCheckoutUrl: Bool {
+        return self.offerings
+            .lazy
+            .contains { $0.webCheckoutUrl != nil }
+    }
+
+    var packages: [Offering.Package] {
+        return self.offerings.flatMap { $0.packages }
+    }
 }
 
 extension OfferingsResponse.Offering.Package: Codable, Equatable {}

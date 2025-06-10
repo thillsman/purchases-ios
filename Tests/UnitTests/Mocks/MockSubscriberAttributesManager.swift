@@ -3,6 +3,7 @@
 // Copyright (c) 2020 Purchases. All rights reserved.
 //
 
+import Foundation
 @testable import RevenueCat
 
 // swiftlint:disable identifier_name
@@ -223,6 +224,18 @@ class MockSubscriberAttributesManager: SubscriberAttributesManager {
         invokedSetTenjinAnalyticsInstallationIDCount += 1
         invokedSetTenjinAnalyticsInstallationIDParameters = (tenjinAnalyticsInstallationID, appUserID)
         invokedSetTenjinAnalyticsInstallationIDParametersList.append((tenjinAnalyticsInstallationID, appUserID))
+    }
+
+    var invokedSetPostHogUserID = false
+    var invokedSetPostHogUserIDCount = 0
+    var invokedSetPostHogUserIDParameters: (postHogUserID: String?, appUserID: String?)?
+    var invokedSetPostHogUserIDParametersList = [(postHogUserID: String?, appUserID: String?)]()
+
+    override func setPostHogUserID(_ postHogUserID: String?, appUserID: String) {
+        invokedSetPostHogUserID = true
+        invokedSetPostHogUserIDCount += 1
+        invokedSetPostHogUserIDParameters = (postHogUserID, appUserID)
+        invokedSetPostHogUserIDParametersList.append((postHogUserID, appUserID))
     }
 
     var invokedSetMediaSource = false
