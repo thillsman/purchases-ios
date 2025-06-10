@@ -265,7 +265,7 @@ struct Template5View: TemplateViewType {
                     .padding(.bottom, self.defaultVerticalPaddingLength)
             }
             
-            self.packageDiscountLabel(package, selected: selected)
+            self.packageBadgeLabel(package, selected: selected)
                 .padding(.horizontal, 4)
                 .padding(.top, -16)
             
